@@ -21,6 +21,7 @@ from typing import List, Optional
 from .adb import AdbError, Device, run_adb
 from .device import DeviceInfo, detect
 from .protected import is_protected
+from .i18n import tr
 
 NAMESPACES = ("global", "secure", "system")
 OUR_PREFIX = "com.bvrgames.tvaccel"  # apps this program installs
@@ -76,7 +77,7 @@ class Session:
     def original(self) -> dict:
         data = _read_json(self.original_path)
         if data is None:
-            raise AdbError("Резервная копия не найдена — откатывать нечего.")
+            raise AdbError(tr("Резервная копия не найдена — откатывать нечего.", "No backup found — nothing to restore."))
         return data
 
     def backup(self) -> str:
@@ -134,7 +135,7 @@ class Session:
             self._record("installed", package)
         out = run_adb(["-s", self.dev.serial, "install", "-r", apk], timeout=180)
         if "Success" not in out:
-            raise AdbError(f"не удалось установить {package}: {out.strip()}")
+            raise AdbError(tr(f"не удалось установить {package}", f"could not install {package}") + f": {out.strip()}")
 
     def uninstall_ours(self, package: str) -> bool:
         """Uninstall an app only if this program installed it."""
@@ -154,7 +155,7 @@ class Session:
             try:
                 if self.dev.get_setting(ns, key) != old:
                     self.dev.put_setting(ns, key, old)
-                    report["settings"].append(f"{ns}/{key} = {old if old is not None else '(нет)'}")
+                    report["settings"].append(f"{ns}/{key} = {old if old is not None else tr('(нет)', '(none)')}")
             except AdbError as e:
                 report["errors"].append(f"{ns}/{key}: {e}")
 
@@ -182,7 +183,7 @@ class Session:
             try:
                 self.dev.shell(f"cmd package set-home-activity {shlex.quote(home)}")
             except AdbError as e:
-                report["errors"].append(f"домашний экран: {e}")
+                report["errors"].append(tr("домашний экран", "home screen") + f": {e}")
 
         for pkg in self.journal()["installed"]:
             try:
@@ -203,14 +204,14 @@ class Session:
         installed = set(self.dev.packages())
         was_disabled = set(orig["disabled"])
         for pkg in sorted(now_disabled - was_disabled):
-            diffs.append(f"всё ещё отключено: {pkg}")
+            diffs.append(tr("всё ещё отключено", "still disabled") + f": {pkg}")
         for pkg in sorted((was_disabled - now_disabled) & installed):
-            diffs.append(f"было отключено, сейчас включено: {pkg}")
+            diffs.append(tr("было отключено, сейчас включено", "was disabled, now enabled") + f": {pkg}")
         for pkg in sorted(installed - set(orig["packages"])):
             if pkg.startswith(OUR_PREFIX):
-                diffs.append(f"наше приложение не удалилось: {pkg}")
+                diffs.append(tr("наше приложение не удалилось", "our app was not removed") + f": {pkg}")
         home = orig.get("home_activity", "")
         now_home = self.dev.shell(HOME_QUERY).strip().splitlines()
         if "/" in home and (not now_home or now_home[-1].strip() != home):
-            diffs.append(f"домашний экран: {now_home[-1].strip() if now_home else '?'} вместо {home}")
+            diffs.append(tr("домашний экран", "home screen") + f": {now_home[-1].strip() if now_home else '?'} " + tr("вместо", "instead of") + f" {home}")
         return diffs

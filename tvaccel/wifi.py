@@ -20,6 +20,7 @@ from typing import List, Optional, Set
 
 from . import adb
 from .backup import Session
+from .i18n import tr
 
 REGION_KEY = "service_region"
 GEO_URL = "http://ip-api.com/json/?fields=status,country,countryCode,proxy,hosting"
@@ -58,12 +59,12 @@ def tv_scan(dev: adb.Device) -> List[dict]:
 
 def signal_quality(rssi: int) -> str:
     if rssi >= -55:
-        return "отличный"
+        return tr("отличный", "excellent")
     if rssi >= -67:
-        return "хороший"
+        return tr("хороший", "good")
     if rssi >= -75:
-        return "слабый"
-    return "очень слабый"
+        return tr("слабый", "weak")
+    return tr("очень слабый", "very weak")
 
 
 # ---- what the computer sees -----------------------------------------------
@@ -135,7 +136,8 @@ def country(session: Session, ask=input, log=print) -> Optional[str]:
     tz_country = _tz_country(tz) if tz else None
     suspicious = geo.get("proxy") or geo.get("hosting") or (tz_country and tz_country != code)
     if suspicious:
-        answer = ask(f"  Ваша страна: {name}? [Enter — да, или введите код страны, например ID]: ").strip()
+        answer = ask(tr(f"  Ваша страна: {name}? [Enter — да, или введите код страны, например ID]: ",
+                        f"  Is your country {name}? [Enter — yes, or type a country code, e.g. ID]: ")).strip()
         if answer and answer.lower() not in ("y", "yes", "да", "д"):
             code = answer.upper()[:2]
     os.makedirs(session.dir, exist_ok=True)
@@ -162,7 +164,7 @@ def restart_wifi(session: Session) -> adb.Device:
         except adb.AdbError:
             pass
         time.sleep(5)
-    raise adb.AdbError("Телевизор не вернулся в Wi-Fi после перезапуска.")
+    raise adb.AdbError(tr("Телевизор не вернулся в Wi-Fi после перезапуска.", "The TV did not rejoin Wi-Fi after the restart."))
 
 
 def run(session: Session, ask=input, log=print) -> dict:
@@ -184,8 +186,11 @@ def run(session: Session, ask=input, log=print) -> dict:
 
     if region is None:
         if missing:
-            report["warnings"].append(f"ТВ не видит сети 5 ГГц на каналах {', '.join(map(str, missing))}, "
-                                      "а смена региона на этом устройстве не поддерживается.")
+            chans = ", ".join(map(str, missing))
+            report["warnings"].append(tr(f"ТВ не видит сети 5 ГГц на каналах {chans}, "
+                                         "а смена региона на этом устройстве не поддерживается.",
+                                         f"The TV does not see 5 GHz networks on channels {chans}, "
+                                         "and this device can't change its Wi-Fi region."))
         return report
 
     code = country(session, ask=ask, log=log)
@@ -193,14 +198,18 @@ def run(session: Session, ask=input, log=print) -> dict:
     if not code or region.upper() == code:
         return report
     if pc_chans is None:
-        report["warnings"].append(f"Регион Wi-Fi устройства {region.upper()}, а страна {code}. "
-                                  "Проверить 5 ГГц не удалось: этот компьютер не умеет сканировать Wi-Fi.")
+        report["warnings"].append(tr(f"Регион Wi-Fi устройства {region.upper()}, а страна {code}. "
+                                     "Проверить 5 ГГц не удалось: этот компьютер не умеет сканировать Wi-Fi.",
+                                     f"The device's Wi-Fi region is {region.upper()}, the country is {code}. "
+                                     "Could not check 5 GHz: this computer can't scan Wi-Fi."))
         return report
     if not missing:
         return report  # region differs, but nothing is actually missing: leave it
 
-    log(f"  Регион Wi-Fi {region.upper()} ≠ {code}, ТВ не видит 5 ГГц (каналы {', '.join(map(str, missing))}). "
-        f"Меняю регион на {code}…")
+    chans = ", ".join(map(str, missing))
+    log(tr(f"  Регион Wi-Fi {region.upper()} ≠ {code}, ТВ не видит 5 ГГц (каналы {chans}). Меняю регион на {code}…",
+           f"  Wi-Fi region {region.upper()} ≠ {code}, the TV misses 5 GHz (channels {chans}). "
+           f"Changing the region to {code}…"))
     session.put_setting("global", REGION_KEY, code)
     session.dev = dev = restart_wifi(session)
     seen = {n["channel"] for n in tv_scan(dev) if n["freq"] >= 5000}
@@ -210,5 +219,6 @@ def run(session: Session, ask=input, log=print) -> dict:
     else:
         dev.put_setting("global", REGION_KEY, region)
         session.dev = restart_wifi(session)
-        report["warnings"].append(f"Смена региона на {code} не помогла увидеть 5 ГГц — регион возвращён.")
+        report["warnings"].append(tr(f"Смена региона на {code} не помогла увидеть 5 ГГц — регион возвращён.",
+                                     f"Changing the region to {code} did not reveal 5 GHz — region put back."))
     return report

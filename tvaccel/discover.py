@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from . import adb
+from .i18n import tr
 
 ADB_PORT = 5555
 
@@ -56,8 +57,10 @@ def find_tv(host: Optional[str] = None) -> adb.Device:
     candidates = scan_subnet()
     if not candidates:
         raise adb.AdbError(
-            "Телевизор не найден в сети. Проверьте, что он включён, подключён к той же "
-            "сети Wi-Fi и что на нём включена отладка по сети."
+            tr("Телевизор не найден в сети. Проверьте, что он включён, подключён к той же "
+               "сети Wi-Fi и что на нём включена отладка по сети.",
+               "No TV found on the network. Check that it is on, on the same Wi-Fi network, "
+               "and that network debugging is turned on.")
         )
     errors = []
     for h in candidates:
@@ -65,15 +68,17 @@ def find_tv(host: Optional[str] = None) -> adb.Device:
             return _ready(f"{h}:{ADB_PORT}", adb.connect(h, ADB_PORT))
         except adb.AdbError as e:
             errors.append(f"{h}: {e}")
-    raise adb.AdbError("Не удалось подключиться:\n" + "\n".join(errors))
+    raise adb.AdbError(tr("Не удалось подключиться:", "Could not connect:") + "\n" + "\n".join(errors))
 
 
 def _ready(serial: str, state: str) -> adb.Device:
     if state == "unauthorized":
         raise adb.AdbError(
-            "На экране телевизора появился запрос «Разрешить отладку?». "
-            "Отметьте «Всегда разрешать с этого компьютера», нажмите «ОК» и запустите ещё раз."
+            tr("На экране телевизора появился запрос «Разрешить отладку?». "
+               "Отметьте «Всегда разрешать с этого компьютера», нажмите «ОК» и запустите ещё раз.",
+               "The TV is asking \"Allow USB debugging?\". Tick \"Always allow from this computer\", "
+               "press OK and run this again.")
         )
     if state != "device":
-        raise adb.AdbError(f"{serial}: устройство в состоянии «{state}»")
+        raise adb.AdbError(f"{serial}: " + tr(f"устройство в состоянии «{state}»", f"device is \"{state}\""))
     return adb.Device(serial)

@@ -16,6 +16,7 @@ from . import adb
 from .backup import Session
 from .launcher import NOT_FAVOURITES, _launchable, favourite_apps
 from .protected import is_protected
+from .i18n import tr
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "cleanyourtv")
 
@@ -80,7 +81,8 @@ def pick_list(model: str, brand: str, android: str, lists: Dict[str, List[str]])
     brand_counts = Counter(p for n, pkgs in lists.items() if b and n.startswith(b + "-") for p in set(pkgs))
     pkgs = {p for p, c in counts.items() if c >= COMMON_MIN_LISTS}
     pkgs |= {p for p, c in brand_counts.items() if c >= BRAND_MIN_LISTS}
-    return f"общий список ({brand or 'неизвестный производитель'})", sorted(pkgs - FALLBACK_KEEP)
+    return tr("общий список", "generic list") + f" ({brand or tr('неизвестный производитель', 'unknown maker')})", \
+        sorted(pkgs - FALLBACK_KEEP)
 
 
 def has_tv_inputs(dev: adb.Device) -> bool:

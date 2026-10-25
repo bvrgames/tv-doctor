@@ -12,6 +12,7 @@ import time
 
 from . import adb
 from .backup import Session
+from .i18n import tr
 
 ADGUARD = "dns.adguard-dns.com"
 AD_PROBES = ("googleads.g.doubleclick.net", "pagead2.googlesyndication.com", "app-measurement.com")
@@ -39,13 +40,15 @@ def run(session: Session, log=print) -> dict:
     dev = session.dev
     report = {"supported": session.info.sdk >= 28, "enabled": False, "blocked": 0, "warnings": []}
     if not report["supported"]:
-        report["warnings"].append("Частный DNS появился в Android 9, на этом устройстве блокировка рекламы недоступна.")
+        report["warnings"].append(tr("Частный DNS появился в Android 9, на этом устройстве блокировка рекламы недоступна.",
+                                     "Private DNS needs Android 9 or later: ad blocking is not available on this device."))
         return report
 
     old_mode = dev.get_setting("global", "private_dns_mode")
     old_host = dev.get_setting("global", "private_dns_specifier")
     if old_mode == "hostname" and old_host and old_host != ADGUARD:
-        report["warnings"].append(f"Уже настроен свой частный DNS ({old_host}) — не меняю.")
+        report["warnings"].append(tr(f"Уже настроен свой частный DNS ({old_host}) — не меняю.",
+                                     f"A custom Private DNS is already set ({old_host}) — left as is."))
         return report
 
     session.require_backup()
@@ -64,8 +67,10 @@ def run(session: Session, log=print) -> dict:
     if not ok:
         dev.put_setting("global", "private_dns_mode", old_mode)
         dev.put_setting("global", "private_dns_specifier", old_host)
-        report["warnings"].append("AdGuard DNS недоступен из этой сети (возможно, порт 853 закрыт) — "
-                                  "настройка возвращена, интернет работает как раньше.")
+        report["warnings"].append(tr("AdGuard DNS недоступен из этой сети (возможно, порт 853 закрыт) — "
+                                     "настройка возвращена, интернет работает как раньше.",
+                                     "AdGuard DNS is not reachable from this network (port 853 may be blocked) — "
+                                     "the setting was put back, the internet works as before."))
         return report
 
     report["enabled"] = True

@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Set
 
 from . import adb
 from .backup import data_root
+from .i18n import tr
 from .launcher import MENU_PACKAGE
 
 IOC_REPO = "DoctorWebLtd/malware-iocs"
@@ -32,34 +33,35 @@ SYSTEM_UID = 1000
 OURS = {MENU_PACKAGE}
 
 # From cleanyourtv tools/privacy.py (MIT): packages with a known job, by evidence, not by name.
+# package: (category, Russian note, English note)
 CATALOGUE = {
-    "com.google.android.katniss": ("voice", "Google Ассистент и голосовой поиск (кнопка микрофона на пульте)"),
-    "com.google.android.speech.pumpkin": ("voice", "офлайн-модель «Окей, Google»"),
-    "org.droidtv.amazonalexa": ("voice", "Amazon Alexa на Philips"),
-    "tv.inscape.tvclient.inscapeacr": ("acr", "Inscape ACR: узнаёт, что на экране (включая HDMI)"),
-    "com.skyworth.aisense": ("acr", "ACR Coocaa/Skyworth для рекламы"),
-    "tv.samba.ssm.ui": ("acr", "Samba TV ACR на TCL: узнаёт, что на экране, для рекламы"),
-    "tv.alphonso.alphonso_eula": ("acr", "Alphonso ACR: узнаёт, что смотрят"),
-    "org.droidtv.candeebug": ("telemetry", "аналитика Philips (DAC)"),
-    "org.droidtv.gel": ("telemetry", "аналитика Philips (GEL)"),
-    "org.droidtv.usagelogger": ("telemetry", "статистика загрузок и нажатий пульта Philips"),
-    "org.droidtv.tv.frameworklogger": ("telemetry", "журналирование Philips"),
-    "com.tcl.logkit": ("telemetry", "сбор и отправка журналов TCL"),
-    "com.google.android.feedback": ("telemetry", "отчёты в Google"),
-    "com.miui.tv.analytics": ("telemetry", "аналитика Xiaomi"),
+    "com.google.android.katniss": ("voice", "Google Ассистент и голосовой поиск (кнопка микрофона на пульте)", "Google Assistant and voice search (the remote's mic button)"),
+    "com.google.android.speech.pumpkin": ("voice", "офлайн-модель «Окей, Google»", 'offline "Ok Google" model'),
+    "org.droidtv.amazonalexa": ("voice", "Amazon Alexa на Philips", "Amazon Alexa on Philips"),
+    "tv.inscape.tvclient.inscapeacr": ("acr", "Inscape ACR: узнаёт, что на экране (включая HDMI)", "Inscape ACR: identifies what is on screen (HDMI too)"),
+    "com.skyworth.aisense": ("acr", "ACR Coocaa/Skyworth для рекламы", "Coocaa/Skyworth ACR for ads"),
+    "tv.samba.ssm.ui": ("acr", "Samba TV ACR на TCL: узнаёт, что на экране, для рекламы", "Samba TV ACR on TCL: identifies what is on screen for ads"),
+    "tv.alphonso.alphonso_eula": ("acr", "Alphonso ACR: узнаёт, что смотрят", "Alphonso ACR: identifies what you watch"),
+    "org.droidtv.candeebug": ("telemetry", "аналитика Philips (DAC)", "Philips analytics (DAC)"),
+    "org.droidtv.gel": ("telemetry", "аналитика Philips (GEL)", "Philips analytics (GEL)"),
+    "org.droidtv.usagelogger": ("telemetry", "статистика загрузок и нажатий пульта Philips", "Philips boot and remote keypress stats"),
+    "org.droidtv.tv.frameworklogger": ("telemetry", "журналирование Philips", "Philips logging"),
+    "com.tcl.logkit": ("telemetry", "сбор и отправка журналов TCL", "TCL log capture and upload"),
+    "com.google.android.feedback": ("telemetry", "отчёты в Google", "reports to Google"),
+    "com.miui.tv.analytics": ("telemetry", "аналитика Xiaomi", "Xiaomi analytics"),
 }
 NAME_HINT = re.compile(r"(?:^|\.)(acr|analytics|hotword|inscape|listen|microphone|telemetry|tracker|tracking)",
                        re.IGNORECASE)
 VOICE_SETTINGS = ("voice_interaction_service", "voice_recognition_service", "assistant")
 
 RISKY = {
-    "android.permission.RECORD_AUDIO": "микрофон",
-    "android.permission.CAMERA": "камера",
-    "android.permission.ACCESS_FINE_LOCATION": "точное местоположение",
-    "android.permission.ACCESS_COARSE_LOCATION": "местоположение",
-    "android.permission.READ_CONTACTS": "контакты",
-    "android.permission.READ_SMS": "SMS",
-    "android.permission.READ_CALL_LOG": "журнал звонков",
+    "android.permission.RECORD_AUDIO": ("микрофон", "microphone"),
+    "android.permission.CAMERA": ("камера", "camera"),
+    "android.permission.ACCESS_FINE_LOCATION": ("точное местоположение", "precise location"),
+    "android.permission.ACCESS_COARSE_LOCATION": ("местоположение", "location"),
+    "android.permission.READ_CONTACTS": ("контакты", "contacts"),
+    "android.permission.READ_SMS": ("SMS", "SMS"),
+    "android.permission.READ_CALL_LOG": ("журнал звонков", "call log"),
 }
 
 
@@ -159,11 +161,12 @@ def run(dev: adb.Device, log=print) -> dict:
     # 1. Known malware.
     ioc = malware_indicators(log=log)
     if ioc is None:
-        r["notes"].append("Не удалось скачать список известных вирусов (нет интернета?) — эта часть пропущена.")
+        r["notes"].append(tr("Не удалось скачать список известных вирусов (нет интернета?) — эта часть пропущена.",
+                             "Could not download the known-malware list (no internet?) — that part was skipped."))
     else:
         r["ioc_families"] = ioc["families"]
         for p in sorted(ioc["packages"] & set(installed)):
-            r["malware"].append(f"приложение {p} — из списка Dr.Web")
+            r["malware"].append(tr(f"приложение {p} — из списка Dr.Web", f"app {p} — on the Dr.Web list"))
         for path in sorted(ioc["paths"]):
             if not _exists(dev, path):
                 continue
@@ -172,33 +175,37 @@ def run(dev: adb.Device, log=print) -> dict:
                 # only its contents tell, so it counts only if the hash is a known sample.
                 out = _quiet(dev, f"sha1sum {shlex.quote(path)}", 120).split()
                 if out and out[0].lower() in ioc["sha1"]:
-                    r["malware"].append(f"файл {path} заменён заражённым (совпал с образцом Dr.Web)")
+                    r["malware"].append(tr(f"файл {path} заменён заражённым (совпал с образцом Dr.Web)",
+                                             f"file {path} was replaced by an infected one (matches a Dr.Web sample)"))
             else:
-                r["malware"].append(f"файл {path} — такого файла в чистой прошивке нет (список Dr.Web)")
+                r["malware"].append(tr(f"файл {path} — такого файла в чистой прошивке нет (список Dr.Web)",
+                                         f"file {path} — not part of a clean firmware (Dr.Web list)"))
         for p in third:
             for apk in [l.split(":", 1)[1] for l in dev.shell(f"pm path {p}").splitlines() if l.startswith("package:")]:
                 out = _quiet(dev, f"sha1sum {shlex.quote(apk)}", 120).split()
                 if out and out[0].lower() in ioc["sha1"]:
-                    r["malware"].append(f"приложение {p} — его файл совпал с образцом из списка Dr.Web")
+                    r["malware"].append(tr(f"приложение {p} — его файл совпал с образцом из списка Dr.Web",
+                                             f"app {p} — its file matches a Dr.Web sample"))
 
     # 2. Firmware.
     if dev.getprop("ro.debuggable") == "1":
-        r["firmware"].append("прошивка в отладочном режиме (ro.debuggable=1)")
+        r["firmware"].append(tr("прошивка в отладочном режиме (ro.debuggable=1)", "debuggable firmware (ro.debuggable=1)"))
     if dev.getprop("ro.secure") == "0":
-        r["firmware"].append("защита прошивки выключена (ro.secure=0)")
+        r["firmware"].append(tr("защита прошивки выключена (ro.secure=0)", "firmware security off (ro.secure=0)"))
     if "test-keys" in dev.getprop("ro.build.tags"):
-        r["firmware"].append("прошивка подписана тестовыми ключами (test-keys)")
+        r["firmware"].append(tr("прошивка подписана тестовыми ключами (test-keys)", "firmware signed with test keys"))
     for su in ("/system/xbin/su", "/system/bin/su", "/sbin/su", "/system/xbin/daemonsu"):
         if _exists(dev, su):
-            r["firmware"].append(f"найден {su} (root)")
+            r["firmware"].append(tr(f"найден {su} (root)", f"found {su} (root)"))
 
     # 3. Not from Play Store.
     for line in dev.shell("pm list packages -3 -i").splitlines():
         m = re.match(r"package:(\S+)\s+installer=(\S+)", line)
         if m and m.group(1) not in OURS and m.group(2) != "com.android.vending":
-            how = "установлено через adb или файлом" if m.group(2) in ("null", "com.google.android.packageinstaller",
+            how = tr("установлено через adb или файлом", "installed over adb or from a file") if m.group(2) in ("null", "com.google.android.packageinstaller",
                                                                       "com.android.packageinstaller") \
-                else ("обновляет себя само" if m.group(2) == m.group(1) else f"установщик {m.group(2)}")
+                else (tr("обновляет себя само", "updates itself") if m.group(2) == m.group(1)
+                      else tr("установщик", "installer") + f" {m.group(2)}")
             r["not_from_play"].append(f"{m.group(1)} — {how}")
 
     # 4. Risky access (third-party apps; system apps under uid 1000 would all "have" everything).
@@ -210,17 +217,18 @@ def run(dev: adb.Device, log=print) -> dict:
     vpn = _quiet(dev, "dumpsys connectivity")
     for p in third:
         dump = _dump(dev, p)
-        what = [RISKY[x] for x in sorted(_granted_runtime(dump)) if x in RISKY]
+        what = [tr(*RISKY[x]) for x in sorted(_granted_runtime(dump)) if x in RISKY]
         if p in can_install:
-            what.append("может устанавливать другие приложения")
+            what.append(tr("может устанавливать другие приложения", "can install other apps"))
         if p in overlay:
-            what.append("может рисовать поверх других приложений")
+            what.append(tr("может рисовать поверх других приложений", "can draw over other apps"))
         if p in accessibility:
-            what.append("включены специальные возможности (видит всё на экране и нажатия)")
+            what.append(tr("включены специальные возможности (видит всё на экране и нажатия)",
+                           "accessibility service on (sees the screen and key presses)"))
         if p in admins:
-            what.append("администратор устройства")
+            what.append(tr("администратор устройства", "device admin"))
         if p in listeners:
-            what.append("читает уведомления")
+            what.append(tr("читает уведомления", "reads notifications"))
         if re.search(rf"VPN.*{re.escape(p)}", vpn):
             what.append("VPN")
         if what:
@@ -234,16 +242,19 @@ def run(dev: adb.Device, log=print) -> dict:
             owners.setdefault(v.split("/")[0], []).append(key)
     names = [p for p in installed if p in CATALOGUE or p in owners or NAME_HINT.search(p)]
     for p in names[:25]:
-        category, note = CATALOGUE.get(p, ("voice" if p in owners else "unknown", "совпало только по названию"))
-        state = "отключено" if p in disabled else "работает"
+        category, note_ru, note_en = CATALOGUE.get(p, ("voice" if p in owners else "unknown", "совпало только по названию",
+                                                       "matched by name only"))
+        note = tr(note_ru, note_en)
+        state = tr("отключено", "disabled") if p in disabled else tr("работает", "enabled")
         line = f"{p} ({state}) — {note}"
         dump = _dump(dev, p)
         if _uid(dump) == SYSTEM_UID:
-            line += "; системный пакет, его права — права системы, а не признак записи"
+            line += tr("; системный пакет, его права — права системы, а не признак записи",
+                       "; system package: its permissions are the system's, not a sign of recording")
         mic = used_microphone(_quiet(dev, f"appops get {shlex.quote(p)} RECORD_AUDIO"))
         if mic:
             r["mic_used"].append(p)
-            line += "; ЕСТЬ недавнее обращение к микрофону"
+            line += tr("; ЕСТЬ недавнее обращение к микрофону", "; RECENT microphone access")
         r.setdefault(category if category in ("voice", "acr", "telemetry") else "telemetry", []).append(line)
     for p in third:
         if p not in names and used_microphone(_quiet(dev, f"appops get {shlex.quote(p)} RECORD_AUDIO")):

@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from typing import List, Optional
 
+from .i18n import tr
+
 
 class AdbError(RuntimeError):
     pass
@@ -26,7 +28,7 @@ def find_adb() -> str:
     for c in candidates:
         if os.path.isfile(c):
             return c
-    raise AdbError("adb не найден. Установите Android platform-tools.")
+    raise AdbError(tr("adb не найден. Установите Android platform-tools.", "adb not found. Install Android platform-tools."))
 
 
 def run_adb(args: List[str], timeout: float = 30) -> str:
@@ -36,10 +38,10 @@ def run_adb(args: List[str], timeout: float = 30) -> str:
             capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        raise AdbError(f"adb {' '.join(args)}: истекло время ожидания")
+        raise AdbError(f"adb {' '.join(args)}: " + tr("истекло время ожидания", "timed out"))
     out = (res.stdout or "") + (res.stderr or "")
     if res.returncode != 0:
-        raise AdbError(out.strip() or f"adb {' '.join(args)} завершился с кодом {res.returncode}")
+        raise AdbError(out.strip() or f"adb {' '.join(args)}: " + tr("код ошибки", "exit code") + f" {res.returncode}")
     return out
 
 

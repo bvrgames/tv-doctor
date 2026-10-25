@@ -21,6 +21,7 @@ from typing import Optional
 from . import adb
 from .backup import Session, data_root
 from .launcher import MENU_ACTIVITY, MENU_PACKAGE
+from .i18n import tr
 
 NETFLIX = "com.netflix.ninja"
 PRIME_VIDEO = "com.amazon.amazonvideo.livingroom"
@@ -53,17 +54,19 @@ def install_rustv(session: Session, log=print) -> str:
     latest, sha = _fetch(RUSTV_RELEASE + "tv-version.txt", 30).decode().split()[:2]
     have = version_code(dev, RUSTV)
     if have is not None and have >= int(latest):
-        return f"rus tv уже последней версии ({have})"
-    log("  Скачиваю rus tv…")
+        return tr(f"rus tv уже последней версии ({have})", f"rus tv is up to date ({have})")
+    log(tr("  Скачиваю rus tv…", "  Downloading rus tv…"))
     apk = _fetch(RUSTV_RELEASE + "rus-tv.apk")
     if hashlib.sha256(apk).hexdigest() != sha.lower():
-        raise adb.AdbError("rus tv: контрольная сумма скачанного файла не совпала, не устанавливаю")
+        raise adb.AdbError(tr("rus tv: контрольная сумма скачанного файла не совпала, не устанавливаю",
+                              "rus tv: the download's checksum did not match, not installing"))
     path = os.path.join(data_root(), "cache", "rus-tv.apk")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(apk)
     session.install_package(RUSTV, path)
-    return f"rus tv установлен (версия {latest})" if have is None else f"rus tv обновлён: {have} → {latest}"
+    return tr(f"rus tv установлен (версия {latest})", f"rus tv installed (version {latest})") if have is None \
+        else tr(f"rus tv обновлён: {have} → {latest}", f"rus tv updated: {have} → {latest}")
 
 
 def run(session: Session, log=print) -> dict:
@@ -75,7 +78,8 @@ def run(session: Session, log=print) -> dict:
     # (the shell may not change another app's components); starting the menu applies it.
     netflix_works = app_enabled(dev, NETFLIX)
     dev.shell(f"am start -n {MENU_ACTIVITY}")
-    report["netflix"] = "Netflix (работает сам)" if netflix_works else "YouTube (или SmartTube, если установлен)"
+    report["netflix"] = tr("Netflix (работает сам)", "Netflix (works itself)") if netflix_works \
+        else tr("YouTube (или SmartTube, если установлен)", "YouTube (or SmartTube if installed)")
 
     # rus tv on a Russian-language TV.
     russian = tv_language(dev) == "ru"
@@ -83,14 +87,14 @@ def run(session: Session, log=print) -> dict:
         try:
             report["rustv"] = install_rustv(session, log=log)
         except Exception as e:  # no internet, GitHub down: the rest still applies
-            report["warnings"].append(f"rus tv не установлен: {e}")
+            report["warnings"].append(tr("rus tv не установлен", "rus tv not installed") + f": {e}")
 
     # Prime Video: only while Prime Video itself is off or missing.
     if app_enabled(dev, PRIME_VIDEO):
-        report["prime"] = "Prime Video (работает сам)"
+        report["prime"] = tr("Prime Video (работает сам)", "Prime Video (works itself)")
         return report
     if session.info.sdk >= 33:
-        report["prime"] = "как было (на Android 13+ это без root не сделать)"
+        report["prime"] = tr("как было (на Android 13+ это без root не сделать)", "unchanged (not possible without root on Android 13+)")
         return report
     target = RUSTV if russian and RUSTV in dev.packages() else "ask"
     # Log access is given to a process when it starts: grant first, then restart the menu.
@@ -98,8 +102,8 @@ def run(session: Session, log=print) -> dict:
     dev.shell(f"am force-stop {MENU_PACKAGE}")
     dev.shell(f"am start -n {MENU_ACTIVITY} --es prime {target}")
     time.sleep(3)
-    report["prime"] = "rus tv" if target == RUSTV else "выбор на экране ТВ при первом нажатии"
+    report["prime"] = "rus tv" if target == RUSTV else tr("выбор на экране ТВ при первом нажатии", "a choice on the TV at the first press")
     running = KEY_SERVICE.split("/")[1] in dev.shell(f"dumpsys activity services {MENU_PACKAGE}", timeout=30)
     if not running:
-        report["warnings"].append("служба кнопки Prime не запустилась")
+        report["warnings"].append(tr("служба кнопки Prime не запустилась", "the Prime key service did not start"))
     return report

@@ -16,51 +16,52 @@ from typing import Optional
 
 from . import adb
 from .backup import Session
+from .i18n import lang, tr
 from .launcher import OLD_LAUNCHERS
 
-# Friendly names for packages this program commonly turns off.
+# Friendly names for packages this program commonly turns off: (Russian, English).
 NAMES = {
-    "com.miui.tv.analytics": "Аналитика Xiaomi",
-    "com.google.android.feedback": "Отчёты в Google",
-    "com.google.android.tv.bugreportsender": "Отправка отчётов об ошибках",
-    "tv.alphonso.alphonso_eula": "Alphonso — слежка за просмотром",
-    "com.mitv.tvhome.michannel": "Рекламные каналы Xiaomi",
-    "com.mitv.tvhome.atv": "PatchWall (рекламная оболочка Xiaomi)",
-    "com.xm.webcontent": "Рекламный контент Xiaomi",
-    "com.google.android.tvrecommendations": "Рекомендации на главном экране",
-    "android.autoinstalls.config.xiaomi.mibox3": "Автоустановка рекламных приложений",
-    "android.autoinstalls.config.xioami.mibox3": "Автоустановка рекламных приложений (дубль)",
-    "com.xiaomi.android.tvsetup.partnercustomizer": "Партнёрские приложения Xiaomi",
-    "com.google.android.partnersetup": "Партнёрская настройка Google",
-    "com.xiaomo.tv.milegal": "Экран соглашений Xiaomi",
-    "com.google.android.play.games": "Google Play Игры",
-    "com.google.android.videos": "Google Play Фильмы",
-    "com.google.android.youtube.tvmusic": "YouTube Music",
-    "com.google.android.tv": "Live Channels (нет ТВ-входов)",
-    "com.google.android.onetimeinitializer": "Разовая настройка Google",
-    "com.android.onetimeinitializer": "Разовая настройка Android",
-    "com.google.android.syncadapters.contacts": "Синхронизация контактов",
-    "com.google.android.syncadapters.calendar": "Синхронизация календаря",
-    "com.google.android.backuptransport": "Резервное копирование Google",
-    "com.android.backupconfirm": "Подтверждение резервного копирования",
-    "com.android.sharedstoragebackup": "Резервное копирование памяти",
-    "com.android.wallpaperbackup": "Резервное копирование обоев",
-    "com.android.printspooler": "Печать",
-    "com.android.settings.intelligence": "Поиск по настройкам",
-    "com.android.se": "Платёжный чип (NFC), которого нет",
-    "com.android.cts.ctsshim": "Тестовая заглушка",
-    "com.android.cts.priv.ctsshim": "Тестовая заглушка",
-    "com.google.android.tvlauncher": "Стандартный домашний экран Google",
-    "com.ansub.tvhome": "Домашний экран tv-detox",
-    "com.netflix.ninja": "Netflix",
-    "com.amazon.amazonvideo.livingroom": "Prime Video",
+    "com.miui.tv.analytics": ("Аналитика Xiaomi", "Xiaomi analytics"),
+    "com.google.android.feedback": ("Отчёты в Google", "Reports to Google"),
+    "com.google.android.tv.bugreportsender": ("Отправка отчётов об ошибках", "Bug report sender"),
+    "tv.alphonso.alphonso_eula": ("Alphonso — слежка за просмотром", "Alphonso — viewing tracking"),
+    "com.mitv.tvhome.michannel": ("Рекламные каналы Xiaomi", "Xiaomi promo channels"),
+    "com.mitv.tvhome.atv": ("PatchWall (рекламная оболочка Xiaomi)", "PatchWall (Xiaomi ad home screen)"),
+    "com.xm.webcontent": ("Рекламный контент Xiaomi", "Xiaomi promo content"),
+    "com.google.android.tvrecommendations": ("Рекомендации на главном экране", "Home screen recommendations"),
+    "android.autoinstalls.config.xiaomi.mibox3": ("Автоустановка рекламных приложений", "Auto-install of promoted apps"),
+    "android.autoinstalls.config.xioami.mibox3": ("Автоустановка рекламных приложений (дубль)", "Auto-install of promoted apps (duplicate)"),
+    "com.xiaomi.android.tvsetup.partnercustomizer": ("Партнёрские приложения Xiaomi", "Xiaomi partner apps"),
+    "com.google.android.partnersetup": ("Партнёрская настройка Google", "Google partner setup"),
+    "com.xiaomo.tv.milegal": ("Экран соглашений Xiaomi", "Xiaomi terms screen"),
+    "com.google.android.play.games": ("Google Play Игры", "Google Play Games"),
+    "com.google.android.videos": ("Google Play Фильмы", "Google Play Movies"),
+    "com.google.android.youtube.tvmusic": ("YouTube Music", "YouTube Music"),
+    "com.google.android.tv": ("Live Channels (нет ТВ-входов)", "Live Channels (no TV inputs)"),
+    "com.google.android.onetimeinitializer": ("Разовая настройка Google", "Google one-time setup"),
+    "com.android.onetimeinitializer": ("Разовая настройка Android", "Android one-time setup"),
+    "com.google.android.syncadapters.contacts": ("Синхронизация контактов", "Contacts sync"),
+    "com.google.android.syncadapters.calendar": ("Синхронизация календаря", "Calendar sync"),
+    "com.google.android.backuptransport": ("Резервное копирование Google", "Google backup"),
+    "com.android.backupconfirm": ("Подтверждение резервного копирования", "Backup confirmation"),
+    "com.android.sharedstoragebackup": ("Резервное копирование памяти", "Storage backup"),
+    "com.android.wallpaperbackup": ("Резервное копирование обоев", "Wallpaper backup"),
+    "com.android.printspooler": ("Печать", "Printing"),
+    "com.android.settings.intelligence": ("Поиск по настройкам", "Settings search"),
+    "com.android.se": ("Платёжный чип (NFC), которого нет", "Payment chip (NFC) it doesn't have"),
+    "com.android.cts.ctsshim": ("Тестовая заглушка", "Test stub"),
+    "com.android.cts.priv.ctsshim": ("Тестовая заглушка", "Test stub"),
+    "com.google.android.tvlauncher": ("Стандартный домашний экран Google", "Google's stock home screen"),
+    "com.ansub.tvhome": ("Домашний экран tv-detox", "tv-detox home screen"),
+    "com.netflix.ninja": ("Netflix", "Netflix"),
+    "com.amazon.amazonvideo.livingroom": ("Prime Video", "Prime Video"),
 }
 GROUPS = (
-    ("ads", "Реклама и навязанные приложения", ("autoinstall", "partner", "recommend", "michannel", "tvhome.atv",
+    ("ads", ("Реклама и навязанные приложения", "Ads and pushed apps"), ("autoinstall", "partner", "recommend", "michannel", "tvhome.atv",
                                                 "webcontent", "milegal", "play.games", "videos", "tvmusic")),
-    ("track", "Слежка и статистика", ("analytics", "feedback", "bugreport", "alphonso", "logkit", "statistic")),
-    ("home", "Старый домашний экран", tuple(OLD_LAUNCHERS)),
-    ("misc", "Служебное, не нужное телевизору", ("",)),
+    ("track", ("Слежка и статистика", "Tracking and analytics"), ("analytics", "feedback", "bugreport", "alphonso", "logkit", "statistic")),
+    ("home", ("Старый домашний экран", "Old home screen"), tuple(OLD_LAUNCHERS)),
+    ("misc", ("Служебное, не нужное телевизору", "System leftovers a TV doesn't need"), ("",)),
 )
 
 
@@ -118,7 +119,7 @@ def render(info, before: dict, after: dict, done: list) -> str:
         groups[_group(p)].append(p)
 
     mem_b, mem_a = before.get("mem_available_mb"), after.get("mem_available_mb")
-    mem_delta = f"+{mem_a - mem_b} МБ" if mem_b is not None and mem_a is not None and mem_a >= mem_b else ""
+    mem_delta = f"+{mem_a - mem_b} " + tr("МБ", "MB") if mem_b is not None and mem_a is not None and mem_a >= mem_b else ""
     pr_b, pr_a = before.get("app_processes"), after.get("app_processes")
     pr_delta = f"−{pr_b - pr_a}" if pr_b is not None and pr_a is not None and pr_a < pr_b else ""
 
@@ -130,11 +131,17 @@ def render(info, before: dict, after: dict, done: list) -> str:
     cols = []
     for key, title, _w in GROUPS:
         if groups[key]:
-            items = "".join(f"<li>{html.escape(NAMES.get(p, p))}</li>" for p in groups[key])
-            cols.append(f'<div class="group"><h3>{title} <span>{len(groups[key])}</span></h3><ul>{items}</ul></div>')
+            items = "".join(f"<li>{html.escape(tr(*NAMES[p]) if p in NAMES else p)}</li>" for p in groups[key])
+            cols.append(f'<div class="group"><h3>{tr(*title)} <span>{len(groups[key])}</span></h3><ul>{items}</ul></div>')
     chips = "".join(f'<span class="chip">✓ {html.escape(d)}</span>' for d in done)
     device = html.escape(f"{info.manufacturer} {info.model}")
-    return f"""<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>TV Acceleration — отчёт</title>
+    mb = tr(" МБ", " MB")
+    taken = html.escape(before["taken_at"])
+    foot = tr(f"«До» — {taken}, до первого запуска программы; «после» — сразу после проверочной перезагрузки. "
+              "Ничего не удалено: приложения отключены и возвращаются кнопкой «Вернуть как было».",
+              f"“Before”: {taken}, before the program's first run; “after”: right after the check restart. "
+              "Nothing was uninstalled: apps are turned off and come back with “Undo”.")
+    return f"""<!doctype html><html lang="{lang()}"><head><meta charset="utf-8"><title>TV Acceleration — {tr("отчёт", "report")}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
@@ -163,19 +170,18 @@ h1{{font-size:46px;font-weight:700;letter-spacing:-.02em;margin:10px 0 6px}}
 .foot{{margin-top:30px;font-size:13px;opacity:.45;line-height:1.6}}
 @media (max-width:760px){{.stats{{grid-template-columns:1fr}}h1{{font-size:34px}}.page{{padding:32px 16px}}}}
 </style></head><body><div class="glow"></div><div class="page">
-<div class="brand">TV Acceleration · отчёт</div>
+<div class="brand">TV Acceleration · {tr("отчёт", "report")}</div>
 <h1>{device}</h1>
-<div class="sub">Android {html.escape(info.android_version)} · {info.ram_nominal_gb:g} ГБ памяти · {html.escape(after["taken_at"])}</div>
+<div class="sub">Android {html.escape(info.android_version)} · {info.ram_nominal_gb:g} {tr("ГБ памяти", "GB RAM")} · {html.escape(after["taken_at"])}</div>
 <div class="stats">
-{stat("Свободная память", mem_b, mem_a, mem_delta, " МБ")}
-{stat("Запущенных приложений", pr_b, pr_a, pr_delta)}
-<div class="stat"><div class="t">Отключено лишнего</div><div class="v"><span class="a">{len(ours)}</span></div>
-<div class="d" style="color:rgba(255,255,255,.55)">ещё {already} было отключено раньше</div></div>
+{stat(tr("Свободная память", "Free memory"), mem_b, mem_a, mem_delta, mb)}
+{stat(tr("Запущенных приложений", "Apps running"), pr_b, pr_a, pr_delta)}
+<div class="stat"><div class="t">{tr("Отключено лишнего", "Turned off")}</div><div class="v"><span class="a">{len(ours)}</span></div>
+<div class="d" style="color:rgba(255,255,255,.55)">{tr(f"ещё {already} было отключено раньше", f"{already} more were already off")}</div></div>
 </div>
 <div class="groups">{"".join(cols)}</div>
 <div class="chips">{chips}</div>
-<div class="foot">«До» — {html.escape(before["taken_at"])}, до первого запуска программы; «после» — сразу после проверочной перезагрузки.
-Ничего не удалено: приложения отключены и возвращаются кнопкой «Вернуть как было».</div>
+<div class="foot">{foot}</div>
 </div></body></html>"""
 
 

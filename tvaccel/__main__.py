@@ -9,44 +9,53 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, dns, launcher, remote, report, screensaver, security, wifi
+from . import cleanup, discover, dns, i18n, launcher, remote, report, screensaver, security, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
+from .i18n import tr
 
 
 def print_info(info: DeviceInfo) -> None:
-    print(f"  Устройство:     {info.manufacturer} {info.model} ({info.device})")
+    mb, gb = tr("МБ", "MB"), tr("ГБ", "GB")
+    print(tr("  Устройство:     ", "  Device:         ") + f"{info.manufacturer} {info.model} ({info.device})")
     print(f"  Android:        {info.android_version} (SDK {info.sdk})")
-    print(f"  Прошивка:       {info.build}")
-    print(f"  Память:         {info.ram_total_mb} МБ (≈ {info.ram_nominal_gb:g} ГБ), "
-          f"свободно {info.ram_available_mb} МБ")
+    print(tr("  Прошивка:       ", "  Firmware:       ") + info.build)
+    print(tr("  Память:         ", "  Memory:         ") + f"{info.ram_total_mb} {mb} (≈ {info.ram_nominal_gb:g} {gb}), "
+          + tr("свободно", "free") + f" {info.ram_available_mb} {mb}")
     if not info.is_tv:
-        print("  ВНИМАНИЕ: это не Android TV — устройство не поддерживается.")
+        print(tr("  ВНИМАНИЕ: это не Android TV — устройство не поддерживается.",
+                 "  WARNING: this is not an Android TV — the device is not supported."))
 
 
 def print_security(s: dict) -> None:
-    print("  Проверка безопасности (только смотрит, ничего не меняет):")
+    print(tr("  Проверка безопасности (только смотрит, ничего не меняет):",
+             "  Security check (only looks, changes nothing):"))
     if s.get("ioc_families"):
-        verdict = "НАЙДЕНО" if s["malware"] else "не найдено"
-        print(f"    Известные вирусы для Android (Dr.Web, {s['ioc_families']} семейств, в т.ч. Vo1d и Pandora для ТВ-приставок): {verdict}")
+        verdict = tr("НАЙДЕНО", "FOUND") if s["malware"] else tr("не найдено", "none found")
+        n = s["ioc_families"]
+        print(tr(f"    Известные вирусы для Android (Dr.Web, {n} семейств, в т.ч. Vo1d и Pandora для ТВ-приставок): ",
+                 f"    Known Android malware (Dr.Web, {n} families incl. Vo1d and Pandora for TV boxes): ") + verdict)
     for line in s["malware"]:
         print(f"      ⚠ {line}")
-    print(f"    Прошивка: {'признаки взлома: ' + '; '.join(s['firmware']) if s['firmware'] else 'признаков взлома нет'}")
-    sections = (("not_from_play", "Установлено не из Play Маркета"),
-                ("risky", "Приложения с опасными правами"),
-                ("voice", "Голосовые помощники (микрофон)"),
-                ("acr", "Слежка за просмотром (ACR)"),
-                ("telemetry", "Сбор статистики"))
+    firmware = (tr("признаки взлома: ", "signs of tampering: ") + "; ".join(s["firmware"])) if s["firmware"] \
+        else tr("признаков взлома нет", "no signs of tampering")
+    print(tr("    Прошивка: ", "    Firmware: ") + firmware)
+    sections = (("not_from_play", tr("Установлено не из Play Маркета", "Installed from outside Play Store")),
+                ("risky", tr("Приложения с опасными правами", "Apps with risky access")),
+                ("voice", tr("Голосовые помощники (микрофон)", "Voice assistants (microphone)")),
+                ("acr", tr("Слежка за просмотром (ACR)", "Viewing tracking (ACR)")),
+                ("telemetry", tr("Сбор статистики", "Analytics")))
     for key, title in sections:
         items = s.get(key) or []
-        print(f"    {title}: {'нет' if not items else ''}")
+        print(f"    {title}: " + ("" if items else tr("нет", "none")))
         for line in items:
             print(f"      - {line}")
     if s["mic_used"]:
-        print(f"    Недавно обращались к микрофону: {', '.join(sorted(set(s['mic_used'])))}")
+        print(tr("    Недавно обращались к микрофону: ", "    Recently used the microphone: ")
+              + ", ".join(sorted(set(s["mic_used"]))))
     for note in s["notes"]:
-        print(f"    ВНИМАНИЕ: {note}")
+        print(tr("    ВНИМАНИЕ: ", "    WARNING: ") + note)
 
 
 def cmd_info(session: Session) -> int:
@@ -54,10 +63,14 @@ def cmd_info(session: Session) -> int:
     return 0
 
 
+def warn(text: str) -> None:
+    print(tr("  ВНИМАНИЕ: ", "  WARNING: ") + text)
+
+
 def cmd_accelerate(session: Session) -> int:
     if not session.info.is_tv:
         print_info(session.info)
-        print("Это не Android TV. Ничего не изменено.")
+        print(tr("Это не Android TV. Ничего не изменено.", "This is not an Android TV. Nothing was changed."))
         return 1
     first = not session.has_original()
     if first:
@@ -65,123 +78,149 @@ def cmd_accelerate(session: Session) -> int:
     path = session.backup()
     done = []
     print_info(session.info)
-    print(f"  Резервная копия: {path}")
+    print(tr("  Резервная копия: ", "  Backup: ") + path)
     if first:
-        print("  Это первый запуск — исходное состояние сохранено для «Вернуть как было».")
-    print("  Чистка…")
+        print(tr("  Это первый запуск — исходное состояние сохранено для «Вернуть как было».",
+                 "  First run — the original state is saved for \"Undo\"."))
+
+    print(tr("  Чистка…", "  Cleanup…"))
     c = cleanup.run(session)
-    print(f"  Список: {c['source']}")
-    print(f"  Отключено сейчас: {len(c['disabled_now'])}, уже было отключено: {len(c['already'])}")
+    print(tr("  Список: ", "  List: ") + c["source"])
+    print(tr(f"  Отключено сейчас: {len(c['disabled_now'])}, уже было отключено: {len(c['already'])}",
+             f"  Turned off now: {len(c['disabled_now'])}, already off: {len(c['already'])}"))
     for pkg in c["disabled_now"]:
         print(f"    - {pkg}")
     if c["protected"]:
-        print(f"  Не тронуто (белый список): {', '.join(c['protected'])}")
+        print(tr("  Не тронуто (белый список): ", "  Left alone (never-touch list): ") + ", ".join(c["protected"]))
     if c["in_use"]:
-        print(f"  Не тронуто (вы этим пользуетесь): {', '.join(c['in_use'])}")
+        print(tr("  Не тронуто (вы этим пользуетесь): ", "  Left alone (you use these): ") + ", ".join(c["in_use"]))
     if c["cache_freed_mb"] is not None:
-        print(f"  Кэш очищен: освобождено {max(c['cache_freed_mb'], 0)} МБ")
-    print(f"  Анимации: ускорены (×{c['animation_scale']})")
-    done += [f"Кэш очищен", "Анимации ускорены"]
+        freed = max(c["cache_freed_mb"], 0)
+        print(tr(f"  Кэш очищен: освобождено {freed} МБ", f"  Cache cleared: {freed} MB freed"))
+    print(tr(f"  Анимации: ускорены (×{c['animation_scale']})", f"  Animations: faster (×{c['animation_scale']})"))
+    done += [tr("Кэш очищен", "Cache cleared"), tr("Анимации ускорены", "Faster animations")]
+    gb, limit = f"{c['ram_gb']:g}", cleanup.LOW_RAM_GB
     if c["bg_limit"]:
-        done.append("Фоновые процессы ограничены")
-    if c["bg_limit"]:
-        print(f"  Ограничение фоновых процессов: ВКЛЮЧЕНО (память {c['ram_gb']:g} ГБ ≤ {cleanup.LOW_RAM_GB} ГБ, "
-              f"не больше {cleanup.MAX_CACHED_PROCESSES})")
+        print(tr(f"  Ограничение фоновых процессов: ВКЛЮЧЕНО (память {gb} ГБ ≤ {limit} ГБ, "
+                 f"не больше {cleanup.MAX_CACHED_PROCESSES})",
+                 f"  Background process limit: ON ({gb} GB RAM ≤ {limit} GB, "
+                 f"at most {cleanup.MAX_CACHED_PROCESSES})"))
+        done.append(tr("Фоновые процессы ограничены", "Background processes limited"))
     else:
-        print(f"  Ограничение фоновых процессов: не применялось (память {c['ram_gb']:g} ГБ > {cleanup.LOW_RAM_GB} ГБ)")
+        print(tr(f"  Ограничение фоновых процессов: не применялось (память {gb} ГБ > {limit} ГБ)",
+                 f"  Background process limit: not applied ({gb} GB RAM > {limit} GB)"))
+
     print("  Wi-Fi…")
     w = wifi.run(session)
     c = w["connection"]
     if c:
-        band = "5 ГГц" if c["freq"] >= 5000 else "2,4 ГГц"
-        print(f"  Сеть: {c['ssid']}, {band}, канал {c['channel']}, сигнал {c['rssi']} дБм "
-              f"({wifi.signal_quality(c['rssi'])}), скорость {c['speed']} Мбит/с")
-    print("  Ложное «нет интернета»: проверка отключена")
+        band = tr("5 ГГц", "5 GHz") if c["freq"] >= 5000 else tr("2,4 ГГц", "2.4 GHz")
+        q = wifi.signal_quality(c["rssi"])
+        print(tr(f"  Сеть: {c['ssid']}, {band}, канал {c['channel']}, сигнал {c['rssi']} дБм ({q}), "
+                 f"скорость {c['speed']} Мбит/с",
+                 f"  Network: {c['ssid']}, {band}, channel {c['channel']}, signal {c['rssi']} dBm ({q}), "
+                 f"link {c['speed']} Mbit/s"))
+    print(tr("  Ложное «нет интернета»: проверка отключена", "  False \"no internet\": check turned off"))
     if w["region_changed"]:
         old, new = w["region_changed"]
-        print(f"  Регион Wi-Fi: {old.upper()} → {new}, теперь видны сети 5 ГГц "
-              f"(каналы {', '.join(map(str, w['tv_5ghz']))}). Подключиться к ним можно в настройках Wi-Fi.")
+        chans = ", ".join(map(str, w["tv_5ghz"]))
+        print(tr(f"  Регион Wi-Fi: {old.upper()} → {new}, теперь видны сети 5 ГГц (каналы {chans}). "
+                 "Подключиться к ним можно в настройках Wi-Fi.",
+                 f"  Wi-Fi region: {old.upper()} → {new}, 5 GHz networks are now visible (channels {chans}). "
+                 "You can join them in Wi-Fi settings."))
+        done.append(tr(f"Wi-Fi 5 ГГц включён (регион {new})", f"5 GHz Wi-Fi on (region {new})"))
     elif w.get("region"):
-        print(f"  Регион Wi-Fi: {w['region'].upper()}, менять не нужно")
-    for warn in w["warnings"]:
-        print(f"  ВНИМАНИЕ: {warn}")
-    if w["region_changed"]:
-        done.append(f"Wi-Fi 5 ГГц включён (регион {w['region_changed'][1]})")
-    print("  Блокировка рекламы…")
+        print(tr(f"  Регион Wi-Fi: {w['region'].upper()}, менять не нужно",
+                 f"  Wi-Fi region: {w['region'].upper()}, no change needed"))
+    for text in w["warnings"]:
+        warn(text)
+
+    print(tr("  Блокировка рекламы…", "  Ad blocking…"))
     d = dns.run(session)
     if d["enabled"]:
-        print(f"  Частный DNS: AdGuard ({dns.ADGUARD}), рекламных адресов заблокировано при проверке: "
-              f"{d['blocked']} из {d['probes']}")
-    for warn in d["warnings"]:
-        print(f"  ВНИМАНИЕ: {warn}")
-    if d["enabled"]:
-        done.append("Реклама блокируется (AdGuard DNS)")
+        print(tr(f"  Частный DNS: AdGuard ({dns.ADGUARD}), рекламных адресов заблокировано при проверке: "
+                 f"{d['blocked']} из {d['probes']}",
+                 f"  Private DNS: AdGuard ({dns.ADGUARD}), ad addresses blocked in the check: "
+                 f"{d['blocked']} of {d['probes']}"))
+        done.append(tr("Реклама блокируется (AdGuard DNS)", "Ads blocked (AdGuard DNS)"))
+    for text in d["warnings"]:
+        warn(text)
+
     try:
         menu = launcher.install_menu(session)
     except launcher.MenuError as e:
         print(f"  {e}")
         return 1
-    print("  Новое меню установлено и открывается кнопкой «Домой», в том числе после перезагрузки.")
-    done.append("Новое меню")
+    print(tr("  Новое меню установлено и открывается кнопкой «Домой», в том числе после перезагрузки.",
+             "  The new menu is installed and Home opens it, also after a restart."))
+    done.append(tr("Новое меню", "New menu"))
     for pkg in menu["disabled"]:
-        print(f"  Старый домашний экран отключён: {pkg}")
-    print("  Кнопки пульта…")
+        print(tr("  Старый домашний экран отключён: ", "  Old home screen turned off: ") + pkg)
+
+    print(tr("  Кнопки пульта…", "  Remote keys…"))
     k = remote.run(session)
-    print(f"  Кнопка Netflix открывает: {k['netflix']}")
-    print(f"  Кнопка Prime Video открывает: {k['prime']}")
+    print(tr("  Кнопка Netflix открывает: ", "  The Netflix key opens: ") + k["netflix"])
+    print(tr("  Кнопка Prime Video открывает: ", "  The Prime Video key opens: ") + k["prime"])
     if k.get("rustv"):
         print(f"  {k['rustv']}")
-    for warn in k["warnings"]:
-        print(f"  ВНИМАНИЕ: {warn}")
+    for text in k["warnings"]:
+        warn(text)
+
     sv = screensaver.run(session)
-    what = "заставка-часы" if sv["clock"] else "заставка"
-    print(f"  Экран: {what} через {sv['screensaver_min']} мин без нажатий, сон через {sv['sleep_min']} мин "
-          "(видео не прерывается)")
-    done.append("Заставка-часы и сон через 5 мин")
+    what = tr("заставка-часы", "clock screensaver") if sv["clock"] else tr("заставка", "screensaver")
+    print(tr(f"  Экран: {what} через {sv['screensaver_min']} мин без нажатий, сон через {sv['sleep_min']} мин "
+             "(видео не прерывается)",
+             f"  Screen: {what} after {sv['screensaver_min']} min without input, sleep after {sv['sleep_min']} min "
+             "(video is not interrupted)"))
+    done.append(tr(f"Заставка-часы и сон через {sv['sleep_min']} мин", f"Clock screensaver, sleep after {sv['sleep_min']} min"))
+
     sec = security.run(session.dev)
     print_security(sec)
     if sec.get("ioc_families") and not sec["malware"]:
-        done.append("Вирусов не найдено")
+        done.append(tr("Вирусов не найдено", "No malware found"))
     out = report.write(session, report.load_baseline(session), report.metrics(session.dev), done)
-    print(f"  Отчёт «до/после»: {out}")
+    print(tr("  Отчёт «до/после»: ", "  Before/after report: ") + out)
     return 0
 
 
 def cmd_restore(session: Session) -> int:
-    report = session.restore()
-    for line in report["settings"]:
-        print(f"  настройка возвращена: {line}")
-    for pkg in report["enabled"]:
-        print(f"  включено обратно: {pkg}")
-    for pkg in report["disabled"]:
-        print(f"  отключено, как было: {pkg}")
-    for pkg in report["uninstalled"]:
-        print(f"  удалено наше приложение: {pkg}")
-    for err in report["errors"]:
-        print(f"  ОШИБКА: {err}")
-    if any(line.startswith(f"global/{wifi.REGION_KEY} ") for line in report["settings"]):
-        print("  Перезапускаю Wi-Fi, чтобы вернулся старый регион…")
+    result = session.restore()
+    for line in result["settings"]:
+        print(tr("  настройка возвращена: ", "  setting restored: ") + line)
+    for pkg in result["enabled"]:
+        print(tr("  включено обратно: ", "  turned back on: ") + pkg)
+    for pkg in result["disabled"]:
+        print(tr("  отключено, как было: ", "  turned off, as it was: ") + pkg)
+    for pkg in result["uninstalled"]:
+        print(tr("  удалено наше приложение: ", "  removed our app: ") + pkg)
+    for err in result["errors"]:
+        print(tr("  ОШИБКА: ", "  ERROR: ") + err)
+    if any(line.startswith(f"global/{wifi.REGION_KEY} ") for line in result["settings"]):
+        print(tr("  Перезапускаю Wi-Fi, чтобы вернулся старый регион…",
+                 "  Restarting Wi-Fi so the old region applies…"))
         session.dev = wifi.restart_wifi(session)
     left = session.verify_restored()
     for d in left:
-        print(f"  НЕ СОВПАДАЕТ: {d}")
-    if report["errors"] or left:
+        print(tr("  НЕ СОВПАДАЕТ: ", "  DOES NOT MATCH: ") + d)
+    if result["errors"] or left:
         return 1
-    print("  Готово: всё как было.")
+    print(tr("  Готово: всё как было.", "  Done: everything is as it was."))
     return 0
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="tvaccel", description="TV Acceleration")
     parser.add_argument("command", choices=["accelerate", "restore", "info"])
-    parser.add_argument("--host", help="IP телевизора (по умолчанию — поиск в сети)")
+    parser.add_argument("--host", help=tr("IP телевизора (по умолчанию — поиск в сети)",
+                                          "TV IP address (default: search the network)"))
     args = parser.parse_args(argv)
     try:
         dev = discover.find_tv(args.host)
+        i18n.set_from_tv(dev)
         session = Session(dev, detect(dev))
         return {"accelerate": cmd_accelerate, "restore": cmd_restore, "info": cmd_info}[args.command](session)
     except AdbError as e:
-        print(f"Ошибка: {e}", file=sys.stderr)
+        print(tr("Ошибка: ", "Error: ") + str(e), file=sys.stderr)
         return 2
 
 

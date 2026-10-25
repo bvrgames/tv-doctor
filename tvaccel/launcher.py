@@ -14,6 +14,7 @@ from typing import List, Optional
 from . import adb
 from .backup import HOME_QUERY, Session
 from .protected import is_protected
+from .i18n import tr
 
 MENU_PACKAGE = "com.bvrgames.tvaccel.home"
 MENU_ACTIVITY = f"{MENU_PACKAGE}/.MainActivity"
@@ -155,7 +156,7 @@ def wait_for_boot(serial: str, timeout: float = 240) -> adb.Device:
         except adb.AdbError:
             pass
         time.sleep(5)
-    raise MenuError("Телевизор не вернулся в сеть после перезагрузки.")
+    raise MenuError(tr("Телевизор не вернулся в сеть после перезагрузки.", "The TV did not come back on the network after restarting."))
 
 
 def install_menu(session: Session, apk: str = MENU_APK, reboot_check: bool = True,
@@ -163,26 +164,27 @@ def install_menu(session: Session, apk: str = MENU_APK, reboot_check: bool = Tru
     """Returns {'installed': bool, 'disabled': [...], 'home': str}."""
     dev = session.dev
     if not os.path.isfile(apk):
-        raise MenuError(f"Нет файла меню: {apk}")
+        raise MenuError(tr("Нет файла меню", "Menu file missing") + f": {apk}")
     session.require_backup()
     previous_home = current_home(dev)
 
     first_install = MENU_PACKAGE not in dev.packages()
-    log("  Устанавливаю новое меню…")
+    log(tr("  Устанавливаю новое меню…", "  Installing the new menu…"))
     session.install_package(MENU_PACKAGE, apk)
     if first_install:
         # Only on the first install, so a row the person arranged later is never overwritten.
         apps = favourite_apps(dev)
         if apps:
-            log(f"  Приложения в верхнем ряду: {', '.join(apps)}")
+            log(tr("  Приложения в верхнем ряду", "  Apps on the top row") + f": {', '.join(apps)}")
             dev.shell(f"am start -n {MENU_ACTIVITY} --es apps {','.join(apps)} --es stamp {int(time.time())}")
     set_home(dev, MENU_ACTIVITY)
 
     disabled: List[str] = []
     try:
         if not home_opens_menu(dev):
-            raise MenuError("кнопка «Домой» открывает не новое меню")
-        log("  Новое меню открывается — отключаю старый домашний экран…")
+            raise MenuError(tr("кнопка «Домой» открывает не новое меню", "Home does not open the new menu"))
+        log(tr("  Новое меню открывается — отключаю старый домашний экран…",
+               "  The new menu opens — turning off the old home screen…"))
         for pkg in old_launchers(dev):
             if session.disable_package(pkg):
                 disabled.append(pkg)
@@ -190,17 +192,19 @@ def install_menu(session: Session, apk: str = MENU_APK, reboot_check: bool = Tru
             time.sleep(15)  # Android writes package state a few seconds later
         set_home(dev, MENU_ACTIVITY)
         if not home_opens_menu(dev):
-            raise MenuError("после отключения старого экрана «Домой» не открывает новое меню")
+            raise MenuError(tr("после отключения старого экрана «Домой» не открывает новое меню",
+                                "with the old home screen off, Home does not open the new menu"))
         if reboot_check:
-            log("  Перезагружаю ТВ, чтобы проверить запуск меню после включения…")
+            log(tr("  Перезагружаю ТВ, чтобы проверить запуск меню после включения…",
+                   "  Restarting the TV to check the menu comes up after a restart…"))
             adb.run_adb(["-s", dev.serial, "reboot"], timeout=20)
             dev = session.dev = wait_for_boot(dev.serial)
             if not foreground(dev).startswith(MENU_PACKAGE + "/") and not home_opens_menu(dev):
-                raise MenuError("после перезагрузки открылось не новое меню")
+                raise MenuError(tr("после перезагрузки открылось не новое меню", "after the restart, something else opened"))
     except (MenuError, adb.AdbError) as e:
-        log(f"  Не получилось ({e}). Возвращаю старый домашний экран…")
+        log(tr(f"  Не получилось ({e}). Возвращаю старый домашний экран…", f"  That failed ({e}). Bringing back the old home screen…"))
         _undo(session, disabled, previous_home)
-        raise MenuError(f"Меню не установлено: {e}. Всё возвращено как было.")
+        raise MenuError(tr(f"Меню не установлено: {e}. Всё возвращено как было.", f"Menu not installed: {e}. Everything was put back."))
 
     return {"installed": True, "disabled": disabled, "home": current_home(dev)}
 
