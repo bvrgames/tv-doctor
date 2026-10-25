@@ -170,11 +170,17 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "unknown"}, 404)
 
 
-def main(open_browser: bool = True, port: int = 0) -> None:
+def serve(port: int = 0):
+    """Start the window's server in the background; returns (server, url). The phone app uses
+    this directly and shows the url in its own WebView."""
     cli.ASK, cli.OPEN_REPORT = _ask, False
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    url = f"http://127.0.0.1:{server.server_address[1]}/"
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_address[1]}/"
+
+
+def main(open_browser: bool = True, port: int = 0) -> None:
+    server, url = serve(port)
     print(url, flush=True)
     if open_browser:
         webbrowser.open(url)

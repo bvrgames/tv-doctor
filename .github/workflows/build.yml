@@ -51,3 +51,30 @@ jobs:
         with:
           draft: true
           files: ${{ matrix.out }}.zip
+
+  phone:
+    # The Android phone app: the same Python program (Chaquopy) + adb over the network (libadb-android).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Build
+        run: |
+          cp -r tvaccel phone/app/src/main/python/
+          gradle -p phone assembleDebug --no-daemon --stacktrace
+          cp phone/app/build/outputs/apk/debug/app-debug.apk TV-Acceleration-Phone.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TV-Acceleration-Phone
+          path: TV-Acceleration-Phone.apk
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: TV-Acceleration-Phone.apk

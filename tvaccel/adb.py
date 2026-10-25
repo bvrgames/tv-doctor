@@ -35,7 +35,57 @@ def find_adb() -> str:
         raise AdbError(tr("adb не найден и не скачался: ", "adb not found and could not be downloaded: ") + str(e))
 
 
+# On an Android phone there is no adb program: the phone app's Java side (AdbBridge, built on
+# libadb-android) speaks the adb protocol, and run_adb() is answered through it.
+ON_ANDROID = "ANDROID_DATA" in os.environ and "ANDROID_ROOT" in os.environ
+_EXIT = "__TVACCEL_EXIT__"
+
+
+def _run_on_phone(args: List[str], timeout: float) -> str:
+    from java import jclass  # Chaquopy
+    bridge = jclass("com.bvrgames.tvaccel.phone.AdbBridge")
+    if args[:1] == ["-s"]:
+        args = args[2:]  # the phone holds one connection: the TV it found
+    cmd = args[0]
+    try:
+        if cmd == "devices":
+            serial = bridge.connectedSerial()
+            return "List of devices attached\n" + (f"{serial}\tdevice\n" if serial else "")
+        if cmd == "connect":
+            host, _, port = args[1].partition(":")
+            state = bridge.connect(host, int(port or 5555), int(timeout * 1000))
+            if state == "unauthorized":
+                raise AdbError("unauthorized")
+            return f"connected to {args[1]}"
+        if cmd == "disconnect":
+            bridge.disconnect()
+            return ""
+        if cmd == "shell":
+            out = str(bridge.shell(f"{args[1]}; echo {_EXIT}$?", int(timeout * 1000)))
+            body, _, code = out.rpartition(_EXIT)
+            if code.strip() not in ("", "0"):
+                raise AdbError(body.strip() or f"exit code {code.strip()}")
+            return body
+        if cmd == "install":
+            out = str(bridge.install(args[-1], int(timeout * 1000)))
+            if "Success" not in out:
+                raise AdbError(out.strip())
+            return out
+        if cmd == "uninstall":
+            return str(bridge.shell(f"pm uninstall {args[1]}", int(timeout * 1000)))
+        if cmd == "reboot":
+            bridge.reboot()
+            return ""
+    except AdbError:
+        raise
+    except Exception as e:  # Java exceptions: lost connection, timeout
+        raise AdbError(str(e))
+    raise AdbError(f"adb {cmd}: not supported on the phone")
+
+
 def run_adb(args: List[str], timeout: float = 30) -> str:
+    if ON_ANDROID:
+        return _run_on_phone(args, timeout)
     try:
         res = subprocess.run(
             [find_adb()] + args,
