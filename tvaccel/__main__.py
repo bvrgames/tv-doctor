@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, launcher, wifi
+from . import cleanup, discover, dns, launcher, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -74,6 +74,13 @@ def cmd_accelerate(session: Session) -> int:
     elif w.get("region"):
         print(f"  Регион Wi-Fi: {w['region'].upper()}, менять не нужно")
     for warn in w["warnings"]:
+        print(f"  ВНИМАНИЕ: {warn}")
+    print("  Блокировка рекламы…")
+    d = dns.run(session)
+    if d["enabled"]:
+        print(f"  Частный DNS: AdGuard ({dns.ADGUARD}), рекламных адресов заблокировано при проверке: "
+              f"{d['blocked']} из {d['probes']}")
+    for warn in d["warnings"]:
         print(f"  ВНИМАНИЕ: {warn}")
     try:
         menu = launcher.install_menu(session)
