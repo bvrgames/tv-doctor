@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, dns, launcher, remote, security, wifi
+from . import cleanup, discover, dns, launcher, remote, screensaver, security, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -122,6 +122,10 @@ def cmd_accelerate(session: Session) -> int:
         print(f"  {k['rustv']}")
     for warn in k["warnings"]:
         print(f"  ВНИМАНИЕ: {warn}")
+    sv = screensaver.run(session)
+    what = "заставка-часы" if sv["clock"] else "заставка"
+    print(f"  Экран: {what} через {sv['screensaver_min']} мин без нажатий, сон через {sv['sleep_min']} мин "
+          "(видео не прерывается)")
     print_security(security.run(session.dev))
     return 0
 
