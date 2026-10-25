@@ -176,8 +176,7 @@ def run(session: Session, log=print) -> dict:
     report["cache_freed_mb"] = (after - before) if before is not None and after is not None else None
 
     for key in ANIMATION_KEYS:
-        if dev.get_setting("global", key) != ANIMATION_SCALE:
-            session.put_setting("global", key, ANIMATION_SCALE)
+        session.ensure_setting("global", key, ANIMATION_SCALE)
     report["animation_scale"] = ANIMATION_SCALE
 
     report["ram_gb"] = session.info.ram_nominal_gb
@@ -187,5 +186,5 @@ def run(session: Session, log=print) -> dict:
         current = dev.get_setting("global", "activity_manager_constants") or ""
         parts = [kv for kv in current.split(",") if kv and not kv.startswith("max_cached_processes=")]
         parts.append(f"max_cached_processes={MAX_CACHED_PROCESSES}")
-        session.put_setting("global", "activity_manager_constants", ",".join(parts))
+        session.ensure_setting("global", "activity_manager_constants", ",".join(parts))
     return report

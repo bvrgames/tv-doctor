@@ -100,6 +100,7 @@ class Session:
         j = _read_json(self.journal_path, {})
         for kind in ("settings", "packages", "installed"):
             j.setdefault(kind, [])
+        j.setdefault("values", {})  # "ns/key" -> the value this program set, to spot what came back
         return j
 
     def _record(self, kind: str, item) -> None:
@@ -112,7 +113,28 @@ class Session:
     def put_setting(self, namespace: str, key: str, value: Optional[str]) -> None:
         self.require_backup()
         self._record("settings", [namespace, key])
+        self._remember(namespace, key, value)
         self.dev.put_setting(namespace, key, value)
+
+    def ensure_setting(self, namespace: str, key: str, value: Optional[str]) -> bool:
+        """Set it only if it differs, but always remember it as ours. True if it changed."""
+        if self.dev.get_setting(namespace, key) == value:
+            self._record("settings", [namespace, key])
+            self._remember(namespace, key, value)
+            return False
+        self.put_setting(namespace, key, value)
+        return True
+
+    def _remember(self, namespace: str, key: str, value: Optional[str]) -> None:
+        j = self.journal()
+        j["values"][f"{namespace}/{key}"] = value
+        _write_json(self.journal_path, j)
+
+    def forget_value(self, namespace: str, key: str) -> None:
+        """A setting we tried and put back: not ours to watch any more."""
+        j = self.journal()
+        if j["values"].pop(f"{namespace}/{key}", "missing") != "missing":
+            _write_json(self.journal_path, j)
 
     def disable_package(self, package: str, allow_protected: bool = False) -> bool:
         """pm disable-user only, never uninstall. Returns False if skipped.
@@ -193,7 +215,7 @@ class Session:
                 report["errors"].append(f"{pkg}: {e}")
 
         if not report["errors"]:
-            _write_json(self.journal_path, {"settings": [], "packages": [], "installed": []})
+            _write_json(self.journal_path, {"settings": [], "packages": [], "installed": [], "values": {}})
         return report
 
     def verify_restored(self) -> List[str]:

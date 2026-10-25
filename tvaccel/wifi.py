@@ -173,8 +173,7 @@ def run(session: Session, ask=input, log=print) -> dict:
     report = {"connection": connection(dev), "warnings": [], "region_changed": None}
 
     # False "no internet": the check for a captive portal, which also fails where Google is blocked.
-    if dev.get_setting("global", "captive_portal_mode") != "0":
-        session.put_setting("global", "captive_portal_mode", "0")
+    session.ensure_setting("global", "captive_portal_mode", "0")
     report["captive_portal_off"] = True
 
     region = dev.get_setting("global", REGION_KEY)
@@ -196,6 +195,8 @@ def run(session: Session, ask=input, log=print) -> dict:
     code = country(session, ask=ask, log=log)
     report["country"] = code
     if not code or region.upper() == code:
+        if ["global", REGION_KEY] in session.journal()["settings"]:
+            session.ensure_setting("global", REGION_KEY, region)  # ours from an earlier run: watch it
         return report
     if pc_chans is None:
         report["warnings"].append(tr(f"Регион Wi-Fi устройства {region.upper()}, а страна {code}. "
@@ -218,6 +219,7 @@ def run(session: Session, ask=input, log=print) -> dict:
         report["tv_5ghz"] = sorted(seen)
     else:
         dev.put_setting("global", REGION_KEY, region)
+        session.forget_value("global", REGION_KEY)
         session.dev = restart_wifi(session)
         report["warnings"].append(tr(f"Смена региона на {code} не помогла увидеть 5 ГГц — регион возвращён.",
                                      f"Changing the region to {code} did not reveal 5 GHz — region put back."))

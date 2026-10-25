@@ -24,6 +24,5 @@ def run(session: Session) -> dict:
         want += [("secure", "screensaver_enabled", "1"),
                  ("secure", "screensaver_components", CLOCK_DREAM)]
     for ns, key, value in want:
-        if dev.get_setting(ns, key) != value:
-            session.put_setting(ns, key, value)
+        session.ensure_setting(ns, key, value)
     return {"clock": clock, "screensaver_min": SCREENSAVER_AFTER_MS // 60000, "sleep_min": SLEEP_AFTER_MS // 60000}

@@ -52,8 +52,8 @@ def run(session: Session, log=print) -> dict:
         return report
 
     session.require_backup()
-    session.put_setting("global", "private_dns_specifier", ADGUARD)
-    session.put_setting("global", "private_dns_mode", "hostname")
+    session.ensure_setting("global", "private_dns_specifier", ADGUARD)
+    session.ensure_setting("global", "private_dns_mode", "hostname")
 
     ok = False
     for _ in range(6):
@@ -67,6 +67,8 @@ def run(session: Session, log=print) -> dict:
     if not ok:
         dev.put_setting("global", "private_dns_mode", old_mode)
         dev.put_setting("global", "private_dns_specifier", old_host)
+        session.forget_value("global", "private_dns_mode")
+        session.forget_value("global", "private_dns_specifier")
         report["warnings"].append(tr("AdGuard DNS недоступен из этой сети (возможно, порт 853 закрыт) — "
                                      "настройка возвращена, интернет работает как раньше.",
                                      "AdGuard DNS is not reachable from this network (port 853 may be blocked) — "

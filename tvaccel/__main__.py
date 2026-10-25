@@ -1,6 +1,7 @@
 """TV Acceleration command line.
 
     python3 -m tvaccel accelerate [--host IP]   «Ускорить»
+    python3 -m tvaccel repeat     [--host IP]   «Повторить после обновления»
     python3 -m tvaccel restore    [--host IP]   «Вернуть как было»
     python3 -m tvaccel info       [--host IP]   only show the device
 """
@@ -9,7 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, dns, i18n, launcher, remote, report, screensaver, security, wifi
+from . import cleanup, discover, dns, i18n, launcher, remote, repeat, report, screensaver, security, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -67,7 +68,7 @@ def warn(text: str) -> None:
     print(tr("  ВНИМАНИЕ: ", "  WARNING: ") + text)
 
 
-def cmd_accelerate(session: Session) -> int:
+def cmd_accelerate(session: Session, show_info: bool = True) -> int:
     if not session.info.is_tv:
         print_info(session.info)
         print(tr("Это не Android TV. Ничего не изменено.", "This is not an Android TV. Nothing was changed."))
@@ -77,7 +78,8 @@ def cmd_accelerate(session: Session) -> int:
         report.save_baseline(session, report.metrics(session.dev))  # the real "before", untouched
     path = session.backup()
     done = []
-    print_info(session.info)
+    if show_info:
+        print_info(session.info)
     print(tr("  Резервная копия: ", "  Backup: ") + path)
     if first:
         print(tr("  Это первый запуск — исходное состояние сохранено для «Вернуть как было».",
@@ -183,6 +185,27 @@ def cmd_accelerate(session: Session) -> int:
     return 0
 
 
+def cmd_repeat(session: Session) -> int:
+    if not session.has_original():
+        print(tr("  Программа ещё не запускалась на этом ТВ — сначала нажмите «Ускорить».",
+                 "  The program has not run on this TV yet — press \"Speed up\" first."))
+        return 1
+    print_info(session.info)
+    print(tr("  Проверяю, что вернулось после обновления…", "  Checking what came back after the update…"))
+    before = repeat.check(session)
+    repeat.print_check(before)
+    print(tr("  Применяю всё заново…", "  Applying everything again…"))
+    code = cmd_accelerate(session, show_info=False)
+    after = repeat.check(session)
+    if repeat.anything(before):
+        if repeat.anything(after):
+            print(tr("  Не удалось исправить:", "  Could not fix:"))
+            repeat.print_check(after)
+            return 1
+        print(tr("  Всё, что вернулось, снова отключено и настроено.", "  Everything that came back is fixed again."))
+    return code
+
+
 def cmd_restore(session: Session) -> int:
     result = session.restore()
     for line in result["settings"]:
@@ -210,7 +233,7 @@ def cmd_restore(session: Session) -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="tvaccel", description="TV Acceleration")
-    parser.add_argument("command", choices=["accelerate", "restore", "info"])
+    parser.add_argument("command", choices=["accelerate", "repeat", "restore", "info"])
     parser.add_argument("--host", help=tr("IP телевизора (по умолчанию — поиск в сети)",
                                           "TV IP address (default: search the network)"))
     args = parser.parse_args(argv)
@@ -218,7 +241,8 @@ def main(argv=None) -> int:
         dev = discover.find_tv(args.host)
         i18n.set_from_tv(dev)
         session = Session(dev, detect(dev))
-        return {"accelerate": cmd_accelerate, "restore": cmd_restore, "info": cmd_info}[args.command](session)
+        commands = {"accelerate": cmd_accelerate, "repeat": cmd_repeat, "restore": cmd_restore, "info": cmd_info}
+        return commands[args.command](session)
     except AdbError as e:
         print(tr("Ошибка: ", "Error: ") + str(e), file=sys.stderr)
         return 2
