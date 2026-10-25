@@ -155,9 +155,19 @@ class Session:
         self.require_backup()
         if package not in self.original()["packages"]:
             self._record("installed", package)
-        out = run_adb(["-s", self.dev.serial, "install", "-r", apk], timeout=180)
-        if "Success" not in out:
-            raise AdbError(tr(f"не удалось установить {package}", f"could not install {package}") + f": {out.strip()}")
+        # A dropped Wi-Fi connection mid-install is common on weak sticks: wait and try again.
+        from .adb import wait_online
+        out = ""
+        for attempt in range(3):
+            try:
+                out = run_adb(["-s", self.dev.serial, "install", "-r", apk], timeout=180)
+                if "Success" in out:
+                    return
+            except AdbError as e:
+                out = str(e)
+            if attempt < 2 and not wait_online(self.dev.serial):
+                break
+        raise AdbError(tr(f"не удалось установить {package}", f"could not install {package}") + f": {out.strip()}")
 
     def uninstall_ours(self, package: str) -> bool:
         """Uninstall an app only if this program installed it."""

@@ -25,10 +25,14 @@ def find_adb() -> str:
         "/opt/homebrew/bin/adb",
         "/usr/local/bin/adb",
     ]
-    for c in candidates:
+    from . import adbget  # here, not at the top: adbget -> backup -> adb
+    for c in candidates + [adbget.local_adb()]:
         if os.path.isfile(c):
             return c
-    raise AdbError(tr("adb не найден. Установите Android platform-tools.", "adb not found. Install Android platform-tools."))
+    try:
+        return adbget.download()
+    except Exception as e:
+        raise AdbError(tr("adb не найден и не скачался: ", "adb not found and could not be downloaded: ") + str(e))
 
 
 def run_adb(args: List[str], timeout: float = 30) -> str:
@@ -66,6 +70,24 @@ def connect(host: str, port: int = 5555) -> str:
         if serial == target:
             return state
     return "unknown"
+
+
+def wait_online(serial: str, timeout: float = 90) -> bool:
+    """After a dropped connection: reconnect (network serials) until the shell answers."""
+    import time
+    host, _, port = serial.partition(":")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            if port:
+                run_adb(["disconnect", serial], timeout=10)
+                connect(host, int(port))
+            if Device(serial).shell("echo ok", timeout=10).strip() == "ok":
+                return True
+        except AdbError:
+            pass
+        time.sleep(5)
+    return False
 
 
 def disconnect(serial: str) -> None:

@@ -1,0 +1,53 @@
+name: build
+
+# The one-button program for Windows and Mac. Runs on a version tag or by hand;
+# the files are attached to the run (Artifacts) and, for a tag, to a draft release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  desktop:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            sep: ";"
+            out: TV-Acceleration-Windows
+          - os: macos-latest
+            sep: ":"
+            out: TV-Acceleration-Mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pyinstaller==6.22.3
+      - name: Build
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --windowed ${{ runner.os == 'Windows' && '--onefile' || '' }} \
+            --name "TV Acceleration" \
+            --add-data "tvaccel/web${{ matrix.sep }}tvaccel/web" \
+            --add-data "tvaccel/data${{ matrix.sep }}tvaccel/data" \
+            app.py
+      - name: Pack
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "../${{ matrix.out }}.zip" "TV Acceleration.exe"
+          else
+            ditto -c -k --keepParent "TV Acceleration.app" "../${{ matrix.out }}.zip"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.out }}
+          path: ${{ matrix.out }}.zip
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ${{ matrix.out }}.zip

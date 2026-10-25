@@ -4,3 +4,8 @@ __pycache__/
 .DS_Store
 launcher/out/
 *.jks
+!tvaccel/data/tv-accel-menu.apk
+build/
+dist/
+*.spec
+.venv/

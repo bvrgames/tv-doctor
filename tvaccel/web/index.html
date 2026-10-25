@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TV Acceleration</title>
+<style>
+:root{--bg:#07070a;--card:rgba(255,255,255,.06);--line:rgba(255,255,255,.09);--dim:rgba(255,255,255,.62);--accent:#9a5cf0;--ok:#7ee2a8;--bad:#ff8a8a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:#fff;font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
+.glow{position:fixed;inset:0;pointer-events:none;background:radial-gradient(900px 560px at 15% -10%,rgba(150,60,200,.38),rgba(7,7,10,0) 70%),radial-gradient(800px 520px at 105% 105%,rgba(30,110,190,.26),rgba(7,7,10,0) 70%)}
+.page{max-width:980px;margin:0 auto;padding:40px 24px 60px;position:relative}
+h1{font-size:34px;font-weight:700;letter-spacing:-.02em}
+.sub{color:var(--dim);margin-top:6px;font-size:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:24px;margin-top:22px}
+.card h2{font-size:19px;font-weight:600;margin-bottom:14px;display:flex;gap:10px;align-items:center}
+.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.12);font-size:14px}
+.guide{display:grid;grid-template-columns:270px 1fr;gap:22px;align-items:start}
+.guide img{width:100%;border-radius:14px;border:1px solid var(--line);display:block}
+.steps{list-style:none;counter-reset:s}
+.steps li{counter-increment:s;padding:10px 12px 10px 44px;position:relative;border-radius:12px;cursor:pointer;color:var(--dim);font-size:16px;line-height:1.4}
+.steps li::before{content:counter(s);position:absolute;left:12px;top:10px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.1);display:grid;place-items:center;font-size:12px}
+.steps li.on{background:rgba(255,255,255,.08);color:#fff}
+.steps li.on::before{background:var(--accent)}
+.hint{color:var(--dim);font-size:14px;margin-top:12px;line-height:1.5}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-size:16px;font-weight:600;border:0;border-radius:14px;padding:14px 20px;cursor:pointer;color:#fff;background:rgba(255,255,255,.12);transition:transform .15s,background .15s}
+button:hover{background:rgba(255,255,255,.18)}
+button:active{transform:scale(.98)}
+button.primary{background:linear-gradient(135deg,#8a4ce8,#3a6fe0);font-size:19px;padding:18px 34px}
+button:disabled{opacity:.4;cursor:default;transform:none}
+input{font:inherit;font-size:15px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:#fff;border-radius:12px;padding:12px 14px;width:190px}
+.tv{font-size:16px;color:var(--dim)}
+.tv b{color:#fff}
+.log{margin-top:16px;background:rgba(0,0,0,.35);border-radius:14px;padding:14px 16px;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:rgba(255,255,255,.82);max-height:340px;overflow:auto;white-space:pre-wrap;display:none}
+.status{margin-top:18px;font-size:17px;min-height:24px}
+.status.ok{font-size:24px;font-weight:700}
+.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:r .8s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes r{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;padding:16px}
+.modal .box{background:#17141c;border:1px solid var(--line);border-radius:20px;padding:24px;max-width:440px;width:100%}
+.modal p{font-size:17px;line-height:1.45;margin-bottom:16px}
+.modal input{width:100%;margin-bottom:14px}
+@media (max-width:720px){.guide{grid-template-columns:1fr}h1{font-size:28px}.page{padding:24px 16px 48px}button.primary{width:100%}}
+</style></head>
+<body><div class="glow"></div><div class="page">
+<h1>TV Acceleration</h1>
+<div class="sub" data-t="tagline"></div>
+
+<div class="card"><h2><span class="num">1</span><span data-t="prep"></span></h2>
+  <div class="guide">
+    <img id="shot" src="img/1-settings.jpg" alt="">
+    <div><ol class="steps" id="steps"></ol><div class="hint" data-t="prepHint"></div></div>
+  </div>
+</div>
+
+<div class="card"><h2><span class="num">2</span><span data-t="find"></span></h2>
+  <div class="row">
+    <button id="findBtn" data-t="findBtn"></button>
+    <input id="ip" data-tp="ipPh">
+    <span class="tv" id="tv"></span>
+  </div>
+</div>
+
+<div class="card"><h2><span class="num">3</span><span data-t="go"></span></h2>
+  <div class="row">
+    <button class="primary" id="accBtn" data-t="acc"></button>
+    <button id="repBtn" data-t="rep"></button>
+    <button id="resBtn" data-t="res"></button>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="row" style="margin-top:14px">
+    <button class="primary" id="reportBtn" data-t="report" style="display:none"></button>
+    <button id="logBtn" data-t="details" style="display:none"></button>
+  </div>
+  <div class="log" id="log"></div>
+</div>
+</div>
+
+<div class="modal" id="modal"><div class="box"><p id="q"></p>
+  <input id="answer"><div class="row"><button class="primary" id="ansBtn" data-t="ok"></button></div></div></div>
+
+<script>
+const T = {
+ ru: {tagline:"Ускорение и чистка Android TV одной кнопкой. Ничего не удаляется — всё возвращается кнопкой «Вернуть как было».",
+  prep:"Включите отладку на телевизоре", find:"Найдите телевизор", go:"Ускорьте",
+  steps:["Откройте Настройки (шестерёнка) → «Настройки устройства».",
+         "Выберите «Об устройстве».",
+         "Наведите на «Сборка» и нажмите OK 7 раз — появится «Вы стали разработчиком».",
+         "Вернитесь назад и откройте «Для разработчиков».",
+         "Включите «Отладка по USB» (и «Отладка по сети», если такой пункт есть)."],
+  prepHint:"Телевизор и этот компьютер должны быть в одной сети Wi-Fi. Когда нажмёте «Найти телевизор», на ТВ появится вопрос «Разрешить отладку?» — отметьте «Всегда разрешать» и нажмите OK. Названия пунктов на разных ТВ немного отличаются.",
+  findBtn:"Найти телевизор", ipPh:"IP (необязательно)", notFound:"не найден", found:"Найден:",
+  acc:"Ускорить", rep:"Повторить после обновления", res:"Вернуть как было", report:"Открыть отчёт",
+  running:"Работаю… не выключайте телевизор", done:"Готово ✓", failed:"Не получилось — подробности ниже",
+  confirmRes:"Вернуть телевизор в состояние до первого запуска программы?", ok:"OK", searching:"Ищу телевизор в сети…",
+  details:"Подробности", hide:"Скрыть подробности"},
+ en: {tagline:"Speed up and clean an Android TV with one button. Nothing is deleted — \"Undo\" brings everything back.",
+  prep:"Turn on debugging on the TV", find:"Find the TV", go:"Speed it up",
+  steps:["Open Settings (gear) → \"Device Preferences\".",
+         "Choose \"About\".",
+         "Highlight \"Build\" and press OK 7 times — \"You are now a developer\" appears.",
+         "Go back and open \"Developer options\".",
+         "Turn on \"USB debugging\" (and \"Network debugging\" if your TV has it)."],
+  prepHint:"The TV and this computer must be on the same Wi-Fi. When you press \"Find the TV\", the TV asks \"Allow debugging?\" — tick \"Always allow\" and press OK. Item names differ a little between TVs.",
+  findBtn:"Find the TV", ipPh:"IP (optional)", notFound:"not found", found:"Found:",
+  acc:"Speed up", rep:"Repeat after an update", res:"Undo", report:"Open the report",
+  running:"Working… keep the TV on", done:"Done ✓", failed:"That did not work — details below",
+  confirmRes:"Put the TV back the way it was before the program's first run?", ok:"OK", searching:"Looking for the TV…",
+  details:"Details", hide:"Hide details"}
+};
+const SHOTS = ["img/1-settings.jpg","img/2-device.jpg","img/3-build.jpg","img/4-devmenu.jpg","img/5-usbdebug.jpg"];
+let lang = "ru", busyBefore = false, lastJob = "", showLog = false;
+const $ = id => document.getElementById(id);
+const t = k => T[lang][k];
+
+function paint(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(e => e.textContent = t(e.dataset.t));
+  document.querySelectorAll("[data-tp]").forEach(e => e.placeholder = t(e.dataset.tp));
+  const ol = $("steps"), on = ol.querySelector(".on"), idx = on ? [...ol.children].indexOf(on) : 0;
+  ol.innerHTML = "";
+  t("steps").forEach((s, i) => {
+    const li = document.createElement("li"); li.textContent = s; if (i === idx) li.className = "on";
+    li.onclick = () => { [...ol.children].forEach(x => x.className = ""); li.className = "on"; $("shot").src = SHOTS[i]; };
+    ol.appendChild(li);
+  });
+}
+
+async function post(path, body){ return (await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})})).json(); }
+function start(job, body){ lastJob = job; post("/api/"+job, body); }
+
+$("findBtn").onclick = () => start("find", {host: $("ip").value.trim()});
+$("accBtn").onclick = () => start("accelerate");
+$("repBtn").onclick = () => start("repeat");
+$("resBtn").onclick = () => { if (confirm(t("confirmRes"))) start("restore"); };
+$("reportBtn").onclick = () => window.open("/report", "_blank");
+$("logBtn").onclick = () => { showLog = !showLog; $("log").style.display = showLog ? "block" : "none";
+  $("logBtn").textContent = t(showLog ? "hide" : "details"); };
+$("ansBtn").onclick = () => { post("/api/answer", {text: $("answer").value}); $("modal").style.display = "none"; };
+
+async function tick(){
+  let s;
+  try { s = await (await fetch("/api/state")).json(); } catch(e) { return; }
+  if (s.lang !== lang) { lang = s.lang; paint(); }
+  $("tv").innerHTML = s.tv ? `${t("found")} <b>${s.tv.name}</b> · Android ${s.tv.android}` : "";
+  ["findBtn","accBtn","repBtn","resBtn"].forEach(id => $(id).disabled = s.busy);
+  $("reportBtn").style.display = s.report && !s.busy ? "" : "none";
+  const st = $("status"), log = $("log");
+  // While working, show only the step being done: the last line that names one ("…").
+  const step = [...s.log].reverse().find(l => l.trim().endsWith("…"));
+  if (s.busy) { st.className = "status"; st.innerHTML = `<span class="spin"></span>${lastJob==="find" ? t("searching") : t("running")}`
+      + (step && lastJob !== "find" ? `<div class="hint">${step.trim()}</div>` : ""); }
+  else if (s.result && busyBefore) { st.className = "status " + (s.result==="ok" ? "ok" : "bad"); st.textContent = s.result==="ok" ? t("done") : t("failed"); }
+  $("logBtn").style.display = s.log.length && lastJob !== "find" ? "" : "none";
+  if (s.log.length) { const end = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+    log.textContent = s.log.join("\n"); if (end) log.scrollTop = log.scrollHeight; }
+  if (s.question && $("modal").style.display !== "grid") { $("q").textContent = s.question; $("answer").value = ""; $("modal").style.display = "grid"; }
+  busyBefore = busyBefore || s.busy;
+}
+paint(); tick(); setInterval(tick, 1000);
+</script></body></html>

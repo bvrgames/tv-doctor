@@ -18,8 +18,11 @@ from .i18n import tr
 
 MENU_PACKAGE = "com.bvrgames.tvaccel.home"
 MENU_ACTIVITY = f"{MENU_PACKAGE}/.MainActivity"
-MENU_APK = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "launcher", "out", "tv-accel-menu.apk")
+# The menu ships inside the program (tvaccel/data, put there by the build); a fresh local
+# build in launcher/out wins while developing.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_DEV_APK = os.path.join(os.path.dirname(_HERE), "launcher", "out", "tv-accel-menu.apk")
+MENU_APK = _DEV_APK if os.path.isfile(_DEV_APK) else os.path.join(_HERE, "data", "tv-accel-menu.apk")
 
 # Home screens that are safe to turn off once ours works (from tv-detox install.sh,
 # plus tv-detox's own menu). Google TV's launcherx is protected and never turned off.
