@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import discover
+from . import discover, launcher
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -41,6 +41,14 @@ def cmd_accelerate(session: Session) -> int:
     print(f"  Резервная копия: {path}")
     if first:
         print("  Это первый запуск — исходное состояние сохранено для «Вернуть как было».")
+    try:
+        menu = launcher.install_menu(session)
+    except launcher.MenuError as e:
+        print(f"  {e}")
+        return 1
+    print("  Новое меню установлено и открывается кнопкой «Домой», в том числе после перезагрузки.")
+    for pkg in menu["disabled"]:
+        print(f"  Старый домашний экран отключён: {pkg}")
     return 0
 
 
@@ -52,6 +60,8 @@ def cmd_restore(session: Session) -> int:
         print(f"  включено обратно: {pkg}")
     for pkg in report["disabled"]:
         print(f"  отключено, как было: {pkg}")
+    for pkg in report["uninstalled"]:
+        print(f"  удалено наше приложение: {pkg}")
     for err in report["errors"]:
         print(f"  ОШИБКА: {err}")
     left = session.verify_restored()

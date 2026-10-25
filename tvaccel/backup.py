@@ -6,8 +6,9 @@ Layout (on the computer/phone running the tool, not on the TV):
         snapshots/<ts>.json  snapshot taken before every run
         journal.json         every setting/package we touched since the last rollback
 
-Rollback returns every touched setting and the enabled/disabled state of every
-package to what `original.json` recorded.
+Rollback returns every touched setting, the enabled/disabled state of every
+package and the home screen to what `original.json` recorded, and uninstalls the
+apps this program installed (only ours: apps that were on the TV are never uninstalled).
 """
 from __future__ import annotations
 
@@ -17,11 +18,12 @@ import shlex
 import time
 from typing import List, Optional
 
-from .adb import AdbError, Device
+from .adb import AdbError, Device, run_adb
 from .device import DeviceInfo, detect
 from .protected import is_protected
 
 NAMESPACES = ("global", "secure", "system")
+OUR_PREFIX = "com.bvrgames.tvaccel"  # apps this program installs
 HOME_QUERY = "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME"
 
 
@@ -88,13 +90,16 @@ class Session:
         self._backed_up = True
         return path
 
-    def _require_backup(self) -> None:
+    def require_backup(self) -> None:
         if not self._backed_up:
             self.backup()
 
     # ---- journal ------------------------------------------------------
     def journal(self) -> dict:
-        return _read_json(self.journal_path, {"settings": [], "packages": []})
+        j = _read_json(self.journal_path, {})
+        for kind in ("settings", "packages", "installed"):
+            j.setdefault(kind, [])
+        return j
 
     def _record(self, kind: str, item) -> None:
         j = self.journal()
@@ -104,7 +109,7 @@ class Session:
 
     # ---- changes ------------------------------------------------------
     def put_setting(self, namespace: str, key: str, value: Optional[str]) -> None:
-        self._require_backup()
+        self.require_backup()
         self._record("settings", [namespace, key])
         self.dev.put_setting(namespace, key, value)
 
@@ -114,16 +119,33 @@ class Session:
             return False
         if package not in self.dev.packages() or package in self.dev.packages("-d"):
             return False
-        self._require_backup()
+        self.require_backup()
         self._record("packages", package)
         out = self.dev.shell(f"pm disable-user --user 0 {shlex.quote(package)}")
         return "disabled" in out
+
+    def install_package(self, package: str, apk: str) -> None:
+        """Install (or update) one of our own apps. Rollback uninstalls it again,
+        unless it was already on the TV before the first run."""
+        self.require_backup()
+        if package not in self.original()["packages"]:
+            self._record("installed", package)
+        out = run_adb(["-s", self.dev.serial, "install", "-r", apk], timeout=180)
+        if "Success" not in out:
+            raise AdbError(f"не удалось установить {package}: {out.strip()}")
+
+    def uninstall_ours(self, package: str) -> bool:
+        """Uninstall an app only if this program installed it."""
+        if package in self.original()["packages"] or package not in self.dev.packages():
+            return False
+        out = run_adb(["-s", self.dev.serial, "uninstall", package], timeout=60)
+        return "Success" in out
 
     # ---- rollback -----------------------------------------------------
     def restore(self) -> dict:
         """Return touched settings and all package states to original.json."""
         orig = self.original()
-        report = {"settings": [], "enabled": [], "disabled": [], "errors": []}
+        report = {"settings": [], "enabled": [], "disabled": [], "uninstalled": [], "errors": []}
 
         for ns, key in self.journal()["settings"]:
             old = orig["settings"].get(ns, {}).get(key)
@@ -152,8 +174,23 @@ class Session:
             except AdbError as e:
                 report["errors"].append(f"{pkg}: {e}")
 
+        # Home screen back first, so Home never points at an app that is about to go.
+        home = orig.get("home_activity", "")
+        if "/" in home:
+            try:
+                self.dev.shell(f"cmd package set-home-activity {shlex.quote(home)}")
+            except AdbError as e:
+                report["errors"].append(f"домашний экран: {e}")
+
+        for pkg in self.journal()["installed"]:
+            try:
+                if self.uninstall_ours(pkg):
+                    report["uninstalled"].append(pkg)
+            except AdbError as e:
+                report["errors"].append(f"{pkg}: {e}")
+
         if not report["errors"]:
-            _write_json(self.journal_path, {"settings": [], "packages": []})
+            _write_json(self.journal_path, {"settings": [], "packages": [], "installed": []})
         return report
 
     def verify_restored(self) -> List[str]:
@@ -167,4 +204,11 @@ class Session:
             diffs.append(f"всё ещё отключено: {pkg}")
         for pkg in sorted((was_disabled - now_disabled) & installed):
             diffs.append(f"было отключено, сейчас включено: {pkg}")
+        for pkg in sorted(installed - set(orig["packages"])):
+            if pkg.startswith(OUR_PREFIX):
+                diffs.append(f"наше приложение не удалилось: {pkg}")
+        home = orig.get("home_activity", "")
+        now_home = self.dev.shell(HOME_QUERY).strip().splitlines()
+        if "/" in home and (not now_home or now_home[-1].strip() != home):
+            diffs.append(f"домашний экран: {now_home[-1].strip() if now_home else '?'} вместо {home}")
         return diffs

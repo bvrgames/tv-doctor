@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 *.apk
 .DS_Store
+launcher/out/
+*.jks
