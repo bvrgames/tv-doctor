@@ -12,7 +12,7 @@ final class Strings {
         "Settings", "Add app", "Network", "Offline", "Sound", "Picture",
         "Move", "Replace", "Remove from home", "Uninstall", "App info",
         "Use the arrows to move it, then press OK", "Every app is already here", "Add an app", "Replace %s", "Wallpaper", "TV settings", "Brightness",
-        "OK to open · hold OK to move", "Play Store",
+        "OK to open · hold OK to move", "Play Store", "Prime Video key", "Keep as it is",
     };
 
     // Keyed by language ("de"), or language-country ("zh-TW") where a country writes it differently.
@@ -85,7 +85,7 @@ final class Strings {
             "Настройки", "Добавить", "Сеть", "Нет сети", "Звук", "Изображение",
             "Переместить", "Заменить", "Убрать с главного экрана", "Удалить", "О приложении",
             "Перемещайте стрелками, затем нажмите OK", "Все приложения уже здесь", "Добавить приложение", "Заменить %s", "Обои", "Настройки телевизора", "Яркость",
-            "OK — открыть · удерживайте OK — переместить", "Play Маркет",
+            "OK — открыть · удерживайте OK — переместить", "Play Маркет", "Кнопка Prime Video", "Оставить как есть",
         });
         LANGS.put("tr", new String[] {
             "Ayarlar", "Uygulama ekle", "Ağ", "Çevrimdışı", "Ses", "Görüntü",

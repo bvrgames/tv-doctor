@@ -151,6 +151,7 @@ public class MainActivity extends Activity {
     // uninstalled from the menu is gone only after Android's prompt has closed), so catch up then.
     private final BroadcastReceiver packagesChanged = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
+            Keys.syncNetflixKey(c);
             dirty = true;
             refreshApps();
         }
@@ -255,6 +256,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         if (saveConfig(intent)) buildTiles();
+        if (intent.getBooleanExtra("choosePrime", false)) showPrimeChooser();
     }
 
     // Saves an app list passed with --es apps "..." and shortcuts passed with --es quick "...".
@@ -262,6 +264,7 @@ public class MainActivity extends Activity {
     // When Android kills the home screen in the background, it can start it again with the same old
     // intent; the stamp install.sh sends stops that from undoing changes made on the TV since.
     private boolean saveConfig(Intent intent) {
+        savePrime(intent);
         String apps = intent == null ? null : intent.getStringExtra("apps");
         String quick = intent == null ? null : intent.getStringExtra("quick");
         if (apps == null && quick == null) return false;
@@ -283,6 +286,44 @@ public class MainActivity extends Activity {
         e.apply();
         dirty = true;
         return true;
+    }
+
+    // What the Prime Video key opens (--es prime <package>|ask|keep), then (re)starts its watcher.
+    // "ask" never replaces a choice already made on the TV.
+    private void savePrime(Intent intent) {
+        String prime = intent == null ? null : intent.getStringExtra(Keys.PRIME_PREF);
+        if (prime != null) {
+            SharedPreferences prefs = Keys.prefs(this);
+            if (!(Keys.ASK.equals(prime) && prefs.contains(Keys.PRIME_PREF)))
+                prefs.edit().putString(Keys.PRIME_PREF, prime.trim()).commit();
+        }
+        Keys.syncNetflixKey(this);
+        KeyWatchService.startIfNeeded(this);
+    }
+
+    // Asked once, on the first Prime press when the TV isn't in Russian: which app the key opens.
+    private void showPrimeChooser() {
+        final PackageManager pm = getPackageManager();
+        TreeMap<String, String> byLabel = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (String category : new String[] {Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
+                String p = ri.activityInfo.packageName;
+                if (p.equals(getPackageName()) || NOT_APPS.contains(p) || byLabel.containsValue(p)) continue;
+                byLabel.put(labelOf(p), p);
+            }
+        }
+        final List<String> labels = new ArrayList<>();
+        final List<String> pkgs = new ArrayList<>();
+        labels.add(Strings.t("Keep as it is"));
+        pkgs.add(Keys.KEEP);
+        for (java.util.Map.Entry<String, String> e : byLabel.entrySet()) {
+            labels.add(e.getKey());
+            pkgs.add(e.getValue());
+        }
+        panel(Strings.t("Prime Video key"), labels, which -> {
+            Keys.prefs(this).edit().putString(Keys.PRIME_PREF, pkgs.get(which)).commit();
+            if (!Keys.KEEP.equals(pkgs.get(which))) Keys.launch(this, pkgs.get(which));
+        });
     }
 
     private List<String> appList(PackageManager pm) {

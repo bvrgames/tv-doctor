@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.bvrgames.tvaccel.home" android:versionCode="1" android:versionName="0.2.0">
+    package="com.bvrgames.tvaccel.home" android:versionCode="2" android:versionName="0.6.0">
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <!-- Only for the network tile: Wi-Fi, Ethernet or offline, and the Wi-Fi signal. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -27,6 +27,12 @@
     </queries>
     <!-- Lets "Uninstall" in the app menu open Android's uninstall prompt. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Remote keys: the Prime key watcher reads "START" lines from the system log
+         (granted over adb with pm grant, Android 9-12) and runs as a foreground service. -->
+    <uses-permission android:name="android.permission.READ_LOGS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <application android:label="Home" android:allowBackup="false"
@@ -43,5 +49,28 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- The Netflix key sends nflx://. Off by default: switched on over adb only while
+             Netflix itself is disabled or missing, so a working Netflix keeps its key. -->
+        <activity android:name=".NetflixKeyActivity"
+            android:exported="true" android:enabled="false"
+            android:excludeFromRecents="true" android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nflx" />
+            </intent-filter>
+        </activity>
+        <service android:name=".KeyWatchService" android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Opens the chosen app when the remote's Prime Video key is pressed" />
+        </service>
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

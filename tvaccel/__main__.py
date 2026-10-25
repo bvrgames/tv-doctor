@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, dns, launcher, wifi
+from . import cleanup, discover, dns, launcher, remote, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -90,6 +90,14 @@ def cmd_accelerate(session: Session) -> int:
     print("  Новое меню установлено и открывается кнопкой «Домой», в том числе после перезагрузки.")
     for pkg in menu["disabled"]:
         print(f"  Старый домашний экран отключён: {pkg}")
+    print("  Кнопки пульта…")
+    k = remote.run(session)
+    print(f"  Кнопка Netflix открывает: {k['netflix']}")
+    print(f"  Кнопка Prime Video открывает: {k['prime']}")
+    if k.get("rustv"):
+        print(f"  {k['rustv']}")
+    for warn in k["warnings"]:
+        print(f"  ВНИМАНИЕ: {warn}")
     return 0
 
 
