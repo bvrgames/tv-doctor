@@ -31,8 +31,62 @@ OLD_LAUNCHERS = [
 ]
 
 
+ROW_SIZE = 5  # apps in the menu's top row
+
+# Never put on the top row: stores, settings, home screens, and utilities people open now and
+# then (task managers, cleaners, file transfer, VPN...), matched against the package name.
+NOT_FAVOURITES = {"com.android.vending", "com.android.tv.settings", "com.android.settings", MENU_PACKAGE} | set(OLD_LAUNCHERS)
+UTILITY_WORDS = ("background", "process", "task", "clean", "boost", "speed", "sendfile", "file",
+                 "explorer", "install", "download", "vpn", "remote", "setup", "launcher", "settings")
+
+
 class MenuError(RuntimeError):
     pass
+
+
+def _launchable(dev: adb.Device) -> List[str]:
+    found: List[str] = []
+    for category in ("LEANBACK_LAUNCHER", "LAUNCHER"):
+        out = dev.shell("cmd package query-activities --brief -a android.intent.action.MAIN "
+                        f"-c android.intent.category.{category}")
+        for line in out.splitlines():
+            pkg = line.strip().split("/")[0]
+            if "/" in line and pkg not in found:
+                found.append(pkg)
+    return found
+
+
+def _seconds(t: str) -> int:
+    total = 0
+    for part in t.split(":"):
+        total = total * 60 + int(part or 0)
+    return total
+
+
+def favourite_apps(dev: adb.Device, limit: int = ROW_SIZE) -> List[str]:
+    """Apps for the top row: most used first (usage stats), then most recently opened
+    (recent tasks, kept across reboots), skipping utilities and system screens."""
+    usage = {}
+    for pkg, t in re.findall(r'package=(\S+) totalTime="([\d:]+)"', dev.shell("dumpsys usagestats", timeout=60)):
+        usage[pkg] = max(usage.get(pkg, 0), _seconds(t))
+    recent: List[str] = []
+    for pkg in re.findall(r"\* Recent #\d+: TaskRecord\{\S+ #\d+ A=([\w.]+)", dev.shell("dumpsys activity recents", timeout=60)):
+        if pkg not in recent:
+            recent.append(pkg)
+
+    candidates = [p for p in _launchable(dev)
+                  if p not in NOT_FAVOURITES and not is_protected(p)
+                  and not any(w in p.lower() for w in UTILITY_WORDS)]
+    # Recent task affinities can carry a suffix (com.google.android.youtube.tv.main).
+    def recent_rank(p: str) -> int:
+        for i, r in enumerate(recent):
+            if r == p or r.startswith(p + "."):
+                return i
+        return len(recent)
+
+    used = sorted((p for p in candidates if usage.get(p, 0) > 0), key=lambda p: -usage[p])
+    rest = sorted((p for p in candidates if p not in used and recent_rank(p) < len(recent)), key=recent_rank)
+    return (used + rest)[:limit]
 
 
 def current_home(dev: adb.Device) -> str:
@@ -113,8 +167,15 @@ def install_menu(session: Session, apk: str = MENU_APK, reboot_check: bool = Tru
     session.require_backup()
     previous_home = current_home(dev)
 
+    first_install = MENU_PACKAGE not in dev.packages()
     log("  Устанавливаю новое меню…")
     session.install_package(MENU_PACKAGE, apk)
+    if first_install:
+        # Only on the first install, so a row the person arranged later is never overwritten.
+        apps = favourite_apps(dev)
+        if apps:
+            log(f"  Приложения в верхнем ряду: {', '.join(apps)}")
+            dev.shell(f"am start -n {MENU_ACTIVITY} --es apps {','.join(apps)} --es stamp {int(time.time())}")
     set_home(dev, MENU_ACTIVITY)
 
     disabled: List[str] = []
