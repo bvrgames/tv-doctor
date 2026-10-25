@@ -32,7 +32,7 @@ Everything is shown in the TV's language: Russian if the TV is in Russian, other
 ## How to use
 
 1. Download the program for your device (Releases):
-   - **Windows** — `TV-Acceleration-Windows.zip`, containing `TV Acceleration.exe`.
+   - **Windows** — `TV-Acceleration-Windows.zip`, containing `TV Acceleration.exe` (built automatically, not yet tested on Windows).
      On first run Windows may warn you: "More info → Run anyway".
    - **Mac** — `TV-Acceleration-Mac.zip`, containing `TV Acceleration.app`.
      On first run: right-click → Open → Open.

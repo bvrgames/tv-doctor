@@ -14,6 +14,22 @@ android {
         versionName "0.12.0"
         ndk { abiFilters "arm64-v8a" }  // Python 3.12 in Chaquopy is 64-bit only
     }
+    // One permanent key, so new versions install over old ones. CI gets it from the repo's
+    // secrets (PHONE_KEYSTORE, PHONE_KEYSTORE_PASS); without them the release is debug-signed.
+    signingConfigs {
+        release {
+            storeFile System.getenv("PHONE_KEYSTORE") ? file(System.getenv("PHONE_KEYSTORE")) : null
+            storePassword System.getenv("PHONE_KEYSTORE_PASS")
+            keyAlias "tvaccelphone"
+            keyPassword System.getenv("PHONE_KEYSTORE_PASS")
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig System.getenv("PHONE_KEYSTORE") ? signingConfigs.release : signingConfigs.debug
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17

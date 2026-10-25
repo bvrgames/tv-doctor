@@ -65,10 +65,16 @@ jobs:
         with:
           gradle-version: "8.10.2"
       - name: Build
+        env:
+          PHONE_KEYSTORE_B64: ${{ secrets.PHONE_KEYSTORE_B64 }}
+          PHONE_KEYSTORE_PASS: ${{ secrets.PHONE_KEYSTORE_PASS }}
         run: |
+          echo "$PHONE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/phone-key.jks"
+          export PHONE_KEYSTORE="$RUNNER_TEMP/phone-key.jks"
           cp -r tvaccel phone/app/src/main/python/
-          gradle -p phone assembleDebug --no-daemon --stacktrace
-          cp phone/app/build/outputs/apk/debug/app-debug.apk TV-Acceleration-Phone.apk
+          gradle -p phone assembleRelease --no-daemon --stacktrace
+          cp phone/app/build/outputs/apk/release/app-release.apk TV-Acceleration-Phone.apk
+          rm -f "$PHONE_KEYSTORE"
       - uses: actions/upload-artifact@v4
         with:
           name: TV-Acceleration-Phone

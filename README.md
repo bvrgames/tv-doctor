@@ -33,7 +33,7 @@
 ## Как запустить
 
 1. Скачайте программу для своего устройства (раздел Releases):
-   - **Windows** — `TV-Acceleration-Windows.zip`, внутри `TV Acceleration.exe`.
+   - **Windows** — `TV-Acceleration-Windows.zip`, внутри `TV Acceleration.exe` (собирается автоматически, на Windows пока не проверялась).
      При первом запуске Windows может предупредить: «Подробнее → Выполнить в любом случае».
    - **Mac** — `TV-Acceleration-Mac.zip`, внутри `TV Acceleration.app`.
      При первом запуске: правый клик → «Открыть» → «Открыть».
