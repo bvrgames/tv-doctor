@@ -1,0 +1,81 @@
+"""TV Acceleration command line.
+
+    python3 -m tvaccel accelerate [--host IP]   «Ускорить»
+    python3 -m tvaccel restore    [--host IP]   «Вернуть как было»
+    python3 -m tvaccel info       [--host IP]   only show the device
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+
+from . import discover
+from .adb import AdbError
+from .backup import Session
+from .device import DeviceInfo, detect
+
+
+def print_info(info: DeviceInfo) -> None:
+    print(f"  Устройство:     {info.manufacturer} {info.model} ({info.device})")
+    print(f"  Android:        {info.android_version} (SDK {info.sdk})")
+    print(f"  Прошивка:       {info.build}")
+    print(f"  Память:         {info.ram_total_mb} МБ (≈ {info.ram_nominal_gb:g} ГБ), "
+          f"свободно {info.ram_available_mb} МБ")
+    if not info.is_tv:
+        print("  ВНИМАНИЕ: это не Android TV — устройство не поддерживается.")
+
+
+def cmd_info(session: Session) -> int:
+    print_info(session.info)
+    return 0
+
+
+def cmd_accelerate(session: Session) -> int:
+    if not session.info.is_tv:
+        print_info(session.info)
+        print("Это не Android TV. Ничего не изменено.")
+        return 1
+    first = not session.has_original()
+    path = session.backup()
+    print_info(session.info)
+    print(f"  Резервная копия: {path}")
+    if first:
+        print("  Это первый запуск — исходное состояние сохранено для «Вернуть как было».")
+    return 0
+
+
+def cmd_restore(session: Session) -> int:
+    report = session.restore()
+    for line in report["settings"]:
+        print(f"  настройка возвращена: {line}")
+    for pkg in report["enabled"]:
+        print(f"  включено обратно: {pkg}")
+    for pkg in report["disabled"]:
+        print(f"  отключено, как было: {pkg}")
+    for err in report["errors"]:
+        print(f"  ОШИБКА: {err}")
+    left = session.verify_restored()
+    for d in left:
+        print(f"  НЕ СОВПАДАЕТ: {d}")
+    if report["errors"] or left:
+        return 1
+    print("  Готово: всё как было.")
+    return 0
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(prog="tvaccel", description="TV Acceleration")
+    parser.add_argument("command", choices=["accelerate", "restore", "info"])
+    parser.add_argument("--host", help="IP телевизора (по умолчанию — поиск в сети)")
+    args = parser.parse_args(argv)
+    try:
+        dev = discover.find_tv(args.host)
+        session = Session(dev, detect(dev))
+        return {"accelerate": cmd_accelerate, "restore": cmd_restore, "info": cmd_info}[args.command](session)
+    except AdbError as e:
+        print(f"Ошибка: {e}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

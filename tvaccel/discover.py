@@ -1,0 +1,79 @@
+"""Find an Android TV with network debugging enabled on the local network."""
+from __future__ import annotations
+
+import ipaddress
+import socket
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, Optional
+
+from . import adb
+
+ADB_PORT = 5555
+
+
+def local_ipv4() -> Optional[str]:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))  # no packets are sent for UDP connect
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def _port_open(host: str, port: int, timeout: float) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def scan_subnet(port: int = ADB_PORT, timeout: float = 0.6) -> List[str]:
+    """Hosts in our /24 with the adb port open."""
+    me = local_ipv4()
+    if not me:
+        return []
+    net = ipaddress.ip_network(f"{me}/24", strict=False)
+    hosts = [str(h) for h in net.hosts() if str(h) != me]
+    with ThreadPoolExecutor(max_workers=64) as pool:
+        flags = list(pool.map(lambda h: _port_open(h, port, timeout), hosts))
+    return [h for h, ok in zip(hosts, flags) if ok]
+
+
+def find_tv(host: Optional[str] = None) -> adb.Device:
+    """Connect to `host`, or to an already connected device, or scan the network."""
+    if host:
+        h, _, p = host.partition(":")
+        state = adb.connect(h, int(p or ADB_PORT))
+        return _ready(f"{h}:{p or ADB_PORT}", state)
+
+    ready = [s for s, st in adb.list_devices() if st == "device"]
+    if len(ready) == 1:
+        return adb.Device(ready[0])
+
+    candidates = scan_subnet()
+    if not candidates:
+        raise adb.AdbError(
+            "Телевизор не найден в сети. Проверьте, что он включён, подключён к той же "
+            "сети Wi-Fi и что на нём включена отладка по сети."
+        )
+    errors = []
+    for h in candidates:
+        try:
+            return _ready(f"{h}:{ADB_PORT}", adb.connect(h, ADB_PORT))
+        except adb.AdbError as e:
+            errors.append(f"{h}: {e}")
+    raise adb.AdbError("Не удалось подключиться:\n" + "\n".join(errors))
+
+
+def _ready(serial: str, state: str) -> adb.Device:
+    if state == "unauthorized":
+        raise adb.AdbError(
+            "На экране телевизора появился запрос «Разрешить отладку?». "
+            "Отметьте «Всегда разрешать с этого компьютера», нажмите «ОК» и запустите ещё раз."
+        )
+    if state != "device":
+        raise adb.AdbError(f"{serial}: устройство в состоянии «{state}»")
+    return adb.Device(serial)
