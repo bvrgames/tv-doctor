@@ -15,3 +15,7 @@ python3 -m tvaccel info         # только показать устройст
   и переделан в стиле Apple TV.
 - Списки чистки по моделям (`tvaccel/data/cleanyourtv/`) взяты из [cleanyourtv](https://github.com/Gathin23/cleanyourtv)
   от Gathin, лицензия MIT — см. [`tvaccel/data/cleanyourtv/LICENSE`](tvaccel/data/cleanyourtv/LICENSE). Коммит `a732cd5`.
+- Логика проверки микрофона и слежки за просмотром (`tvaccel/security.py`) — по `tools/privacy.py` из
+  [cleanyourtv](https://github.com/Gathin23/cleanyourtv) (MIT).
+- Признаки известных вирусов скачиваются во время проверки из открытого репозитория
+  [Doctor Web malware-iocs](https://github.com/DoctorWebLtd/malware-iocs); в этот репозиторий они не копируются.

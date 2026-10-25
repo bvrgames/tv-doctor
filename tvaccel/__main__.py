@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, dns, launcher, remote, wifi
+from . import cleanup, discover, dns, launcher, remote, security, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -23,6 +23,30 @@ def print_info(info: DeviceInfo) -> None:
           f"свободно {info.ram_available_mb} МБ")
     if not info.is_tv:
         print("  ВНИМАНИЕ: это не Android TV — устройство не поддерживается.")
+
+
+def print_security(s: dict) -> None:
+    print("  Проверка безопасности (только смотрит, ничего не меняет):")
+    if s.get("ioc_families"):
+        verdict = "НАЙДЕНО" if s["malware"] else "не найдено"
+        print(f"    Известные вирусы для Android (Dr.Web, {s['ioc_families']} семейств, в т.ч. Vo1d и Pandora для ТВ-приставок): {verdict}")
+    for line in s["malware"]:
+        print(f"      ⚠ {line}")
+    print(f"    Прошивка: {'признаки взлома: ' + '; '.join(s['firmware']) if s['firmware'] else 'признаков взлома нет'}")
+    sections = (("not_from_play", "Установлено не из Play Маркета"),
+                ("risky", "Приложения с опасными правами"),
+                ("voice", "Голосовые помощники (микрофон)"),
+                ("acr", "Слежка за просмотром (ACR)"),
+                ("telemetry", "Сбор статистики"))
+    for key, title in sections:
+        items = s.get(key) or []
+        print(f"    {title}: {'нет' if not items else ''}")
+        for line in items:
+            print(f"      - {line}")
+    if s["mic_used"]:
+        print(f"    Недавно обращались к микрофону: {', '.join(sorted(set(s['mic_used'])))}")
+    for note in s["notes"]:
+        print(f"    ВНИМАНИЕ: {note}")
 
 
 def cmd_info(session: Session) -> int:
@@ -98,6 +122,7 @@ def cmd_accelerate(session: Session) -> int:
         print(f"  {k['rustv']}")
     for warn in k["warnings"]:
         print(f"  ВНИМАНИЕ: {warn}")
+    print_security(security.run(session.dev))
     return 0
 
 
