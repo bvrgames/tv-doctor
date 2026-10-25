@@ -113,9 +113,11 @@ class Session:
         self._record("settings", [namespace, key])
         self.dev.put_setting(namespace, key, value)
 
-    def disable_package(self, package: str) -> bool:
-        """pm disable-user only, never uninstall. Returns False if skipped."""
-        if is_protected(package):
+    def disable_package(self, package: str, allow_protected: bool = False) -> bool:
+        """pm disable-user only, never uninstall. Returns False if skipped.
+        allow_protected: the caller has checked this protected package is not needed
+        on this device (Live Channels on a device with no inputs)."""
+        if is_protected(package) and not allow_protected:
             return False
         if package not in self.dev.packages() or package in self.dev.packages("-d"):
             return False

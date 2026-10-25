@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from collections import Counter
 from typing import Dict, List, Optional, Tuple
 
@@ -22,7 +23,7 @@ ANIMATION_SCALE = "0.5"
 ANIMATION_KEYS = ("window_animation_scale", "transition_animation_scale", "animator_duration_scale")
 
 # Background process limit, only on weak devices.
-LOW_RAM_GB = 2            # limit when nominal RAM is this or less
+LOW_RAM_GB = 1.5          # limit when nominal RAM is this or less
 MAX_CACHED_PROCESSES = 4  # Android 9 default is 32; 8 changed nothing on a 1 GB stick
 
 # Lists for other models of the same brand, or the generic fallback, never take these:
@@ -36,6 +37,8 @@ FALLBACK_KEEP = {
 # Screensavers are left for the screensaver step (clock and sleep), not removed here.
 SCREENSAVERS = {"com.android.dreams.basic", "com.mitv.dream", "com.google.android.backdrop",
                 "com.google.android.apps.tv.dreamx"}
+# Live Channels is protected (HDMI inputs), but useless where there are no inputs at all.
+LIVE_CHANNELS = "com.google.android.tv"
 COMMON_MIN_LISTS = 15  # a package in this many model lists counts as generic junk
 BRAND_MIN_LISTS = 2    # for an unknown model: in this many lists of the same brand
 
@@ -80,6 +83,25 @@ def pick_list(model: str, brand: str, android: str, lists: Dict[str, List[str]])
     return f"общий список ({brand or 'неизвестный производитель'})", sorted(pkgs - FALLBACK_KEEP)
 
 
+def has_tv_inputs(dev: adb.Device) -> bool:
+    """True if the TV input framework knows any input (HDMI, tuner...). When unsure, True."""
+    out = dev.shell("dumpsys tv_input", timeout=30)
+    sections = {"inputMap:": "packageSet:", "mHardwareList:": "mHdmiDeviceList:"}
+    lines = out.splitlines()
+    found_any = False
+    for start, end in sections.items():
+        inside = False
+        for line in lines:
+            if start in line:
+                inside, found_any = True, True
+                continue
+            if inside and end in line:
+                inside = False
+            elif inside and line.strip():
+                return True
+    return not found_any
+
+
 def preinstalled(dev: adb.Device) -> set:
     return set(dev.packages("-s"))
 
@@ -97,12 +119,18 @@ def plan(session: Session) -> dict:
                              "-c android.intent.category.HOME").strip().splitlines()
     home_pkg = home[-1].split("/")[0] if home else ""
 
+    no_inputs = LIVE_CHANNELS in installed and not has_tv_inputs(dev)
+    if no_inputs and LIVE_CHANNELS not in wanted:
+        wanted = list(wanted) + [LIVE_CHANNELS]
+
     result = {"source": source, "disable": [], "already": [], "protected": [], "in_use": [], "not_system": []}
     for p in wanted:
         if p not in installed:
             continue
         if p in disabled:
             result["already"].append(p)
+        elif p == LIVE_CHANNELS and no_inputs and p not in in_use and p in system:
+            result["disable"].append(p)
         elif is_protected(p) or p == home_pkg or p in NOT_FAVOURITES - {"com.google.android.tvlauncher"}:
             result["protected"].append(p)
         elif p in SCREENSAVERS:
@@ -135,8 +163,10 @@ def run(session: Session, log=print) -> dict:
     report = dict(p)
     report["disabled_now"] = []
     for pkg in p["disable"]:
-        if session.disable_package(pkg):
+        if session.disable_package(pkg, allow_protected=(pkg == LIVE_CHANNELS)):
             report["disabled_now"].append(pkg)
+    if report["disabled_now"]:
+        time.sleep(20)  # Android writes package state ~10 s later; a reboot before that undoes it
 
     before = data_free_mb(dev)
     dev.shell("pm trim-caches 999G", timeout=120)

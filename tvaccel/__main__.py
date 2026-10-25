@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, launcher
+from . import cleanup, discover, launcher, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -59,6 +59,22 @@ def cmd_accelerate(session: Session) -> int:
               f"не больше {cleanup.MAX_CACHED_PROCESSES})")
     else:
         print(f"  Ограничение фоновых процессов: не применялось (память {c['ram_gb']:g} ГБ > {cleanup.LOW_RAM_GB} ГБ)")
+    print("  Wi-Fi…")
+    w = wifi.run(session)
+    c = w["connection"]
+    if c:
+        band = "5 ГГц" if c["freq"] >= 5000 else "2,4 ГГц"
+        print(f"  Сеть: {c['ssid']}, {band}, канал {c['channel']}, сигнал {c['rssi']} дБм "
+              f"({wifi.signal_quality(c['rssi'])}), скорость {c['speed']} Мбит/с")
+    print("  Ложное «нет интернета»: проверка отключена")
+    if w["region_changed"]:
+        old, new = w["region_changed"]
+        print(f"  Регион Wi-Fi: {old.upper()} → {new}, теперь видны сети 5 ГГц "
+              f"(каналы {', '.join(map(str, w['tv_5ghz']))}). Подключиться к ним можно в настройках Wi-Fi.")
+    elif w.get("region"):
+        print(f"  Регион Wi-Fi: {w['region'].upper()}, менять не нужно")
+    for warn in w["warnings"]:
+        print(f"  ВНИМАНИЕ: {warn}")
     try:
         menu = launcher.install_menu(session)
     except launcher.MenuError as e:
@@ -82,6 +98,9 @@ def cmd_restore(session: Session) -> int:
         print(f"  удалено наше приложение: {pkg}")
     for err in report["errors"]:
         print(f"  ОШИБКА: {err}")
+    if any(line.startswith(f"global/{wifi.REGION_KEY} ") for line in report["settings"]):
+        print("  Перезапускаю Wi-Fi, чтобы вернулся старый регион…")
+        session.dev = wifi.restart_wifi(session)
     left = session.verify_restored()
     for d in left:
         print(f"  НЕ СОВПАДАЕТ: {d}")
