@@ -18,7 +18,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    packaging { resources { excludes += ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"] } }
+    packaging {
+        resources {
+            excludes += ["META-INF/versions/9/OSGI-INF/MANIFEST.MF"]
+            pickFirsts += ["org/bouncycastle/**"]  // the same data files ship in two Bouncy Castle jars
+        }
+    }
 }
 
 // The same Python program as on Windows and Mac (copied into src/main/python by the build).
