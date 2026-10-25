@@ -1,0 +1,159 @@
+"""Cleanup «максимум»: junk, ads and telemetry by the model lists from cleanyourtv,
+app caches, faster animations, and a background-process limit on weak devices.
+
+Model lists: tvaccel/data/cleanyourtv/<model>/debloat.txt, from
+https://github.com/Gathin23/cleanyourtv (MIT, see data/cleanyourtv/LICENSE).
+"""
+from __future__ import annotations
+
+import os
+import re
+from collections import Counter
+from typing import Dict, List, Optional, Tuple
+
+from . import adb
+from .backup import Session
+from .launcher import NOT_FAVOURITES, _launchable, favourite_apps
+from .protected import is_protected
+
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "cleanyourtv")
+
+ANIMATION_SCALE = "0.5"
+ANIMATION_KEYS = ("window_animation_scale", "transition_animation_scale", "animator_duration_scale")
+
+# Background process limit, only on weak devices.
+LOW_RAM_GB = 2            # limit when nominal RAM is this or less
+MAX_CACHED_PROCESSES = 4  # Android 9 default is 32; 8 changed nothing on a 1 GB stick
+
+# Lists for other models of the same brand, or the generic fallback, never take these:
+# features people use without ever "opening" an app (casting, voice, accessibility, updates).
+FALLBACK_KEEP = {
+    "com.google.android.apps.mediashell", "com.mitv.milinkservice", "com.google.android.katniss",
+    "com.google.android.speech.pumpkin", "com.google.android.tts", "com.google.android.marvin.talkback",
+    "com.google.android.tv.remote.service", "com.google.android.tv.assistant",
+    "com.xiaomi.mitv.updateservice",
+}
+# Screensavers are left for the screensaver step (clock and sleep), not removed here.
+SCREENSAVERS = {"com.android.dreams.basic", "com.mitv.dream", "com.google.android.backdrop",
+                "com.google.android.apps.tv.dreamx"}
+COMMON_MIN_LISTS = 15  # a package in this many model lists counts as generic junk
+BRAND_MIN_LISTS = 2    # for an unknown model: in this many lists of the same brand
+
+
+def _slug(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
+def parse_list(path: str) -> List[str]:
+    pkgs = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.split("#", 1)[0].strip()
+            if line and re.match(r"^[A-Za-z][\w.]*$", line.split()[0]):
+                pkgs.append(line.split()[0])
+    return pkgs
+
+
+def all_lists() -> Dict[str, List[str]]:
+    lists = {}
+    for name in sorted(os.listdir(DATA)):
+        path = os.path.join(DATA, name, "debloat.txt")
+        if os.path.isfile(path):
+            lists[name] = parse_list(path)
+    return lists
+
+
+def pick_list(model: str, brand: str, android: str, lists: Dict[str, List[str]]) -> Tuple[str, List[str]]:
+    """Returns (source, packages). Exact model list if there is one, else brand + generic junk."""
+    m = _slug(model)
+    exact = [n for n in lists if n == m or n.endswith("-" + m) or ("-" + m + "-") in n]
+    if exact:
+        # Several firmwares of one model: prefer the folder naming our Android version.
+        exact.sort(key=lambda n: (f"android{android}" not in n, len(n)))
+        return exact[0], lists[exact[0]]
+
+    counts = Counter(p for pkgs in lists.values() for p in set(pkgs))
+    b = _slug(brand)
+    brand_counts = Counter(p for n, pkgs in lists.items() if b and n.startswith(b + "-") for p in set(pkgs))
+    pkgs = {p for p, c in counts.items() if c >= COMMON_MIN_LISTS}
+    pkgs |= {p for p, c in brand_counts.items() if c >= BRAND_MIN_LISTS}
+    return f"общий список ({brand or 'неизвестный производитель'})", sorted(pkgs - FALLBACK_KEEP)
+
+
+def preinstalled(dev: adb.Device) -> set:
+    return set(dev.packages("-s"))
+
+
+def plan(session: Session) -> dict:
+    """What cleanup would do, without changing anything."""
+    dev, info = session.dev, session.info
+    source, wanted = pick_list(info.model, info.brand or info.manufacturer, info.android_version, all_lists())
+    installed = set(dev.packages())
+    disabled = set(dev.packages("-d"))
+    system = preinstalled(dev)
+    launchable = set(_launchable(dev))
+    in_use = set(favourite_apps(dev, limit=100))
+    home = session.dev.shell("cmd package resolve-activity --brief -a android.intent.action.MAIN "
+                             "-c android.intent.category.HOME").strip().splitlines()
+    home_pkg = home[-1].split("/")[0] if home else ""
+
+    result = {"source": source, "disable": [], "already": [], "protected": [], "in_use": [], "not_system": []}
+    for p in wanted:
+        if p not in installed:
+            continue
+        if p in disabled:
+            result["already"].append(p)
+        elif is_protected(p) or p == home_pkg or p in NOT_FAVOURITES - {"com.google.android.tvlauncher"}:
+            result["protected"].append(p)
+        elif p in SCREENSAVERS:
+            continue
+        elif p in in_use:
+            result["in_use"].append(p)
+        elif p not in system and p in launchable:  # an app the person may have installed
+            result["not_system"].append(p)
+        else:
+            result["disable"].append(p)
+    return result
+
+
+def background_limit_needed(info) -> bool:
+    return info.ram_nominal_gb <= LOW_RAM_GB
+
+
+def data_free_mb(dev: adb.Device) -> Optional[int]:
+    out = dev.shell("df -k /data").splitlines()
+    try:
+        return int(out[-1].split()[3]) // 1024
+    except (IndexError, ValueError):
+        return None
+
+
+def run(session: Session, log=print) -> dict:
+    dev = session.dev
+    session.require_backup()
+    p = plan(session)
+    report = dict(p)
+    report["disabled_now"] = []
+    for pkg in p["disable"]:
+        if session.disable_package(pkg):
+            report["disabled_now"].append(pkg)
+
+    before = data_free_mb(dev)
+    dev.shell("pm trim-caches 999G", timeout=120)
+    after = data_free_mb(dev)
+    report["cache_freed_mb"] = (after - before) if before is not None and after is not None else None
+
+    for key in ANIMATION_KEYS:
+        if dev.get_setting("global", key) != ANIMATION_SCALE:
+            session.put_setting("global", key, ANIMATION_SCALE)
+    report["animation_scale"] = ANIMATION_SCALE
+
+    report["ram_gb"] = session.info.ram_nominal_gb
+    report["bg_limit"] = background_limit_needed(session.info)
+    if report["bg_limit"]:
+        # The setting is a comma-separated key=value list; keep anything else already in it.
+        current = dev.get_setting("global", "activity_manager_constants") or ""
+        parts = [kv for kv in current.split(",") if kv and not kv.startswith("max_cached_processes=")]
+        parts.append(f"max_cached_processes={MAX_CACHED_PROCESSES}")
+        session.put_setting("global", "activity_manager_constants", ",".join(parts))
+    return report

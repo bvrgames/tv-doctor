@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import discover, launcher
+from . import cleanup, discover, launcher
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -41,6 +41,24 @@ def cmd_accelerate(session: Session) -> int:
     print(f"  Резервная копия: {path}")
     if first:
         print("  Это первый запуск — исходное состояние сохранено для «Вернуть как было».")
+    print("  Чистка…")
+    c = cleanup.run(session)
+    print(f"  Список: {c['source']}")
+    print(f"  Отключено сейчас: {len(c['disabled_now'])}, уже было отключено: {len(c['already'])}")
+    for pkg in c["disabled_now"]:
+        print(f"    - {pkg}")
+    if c["protected"]:
+        print(f"  Не тронуто (белый список): {', '.join(c['protected'])}")
+    if c["in_use"]:
+        print(f"  Не тронуто (вы этим пользуетесь): {', '.join(c['in_use'])}")
+    if c["cache_freed_mb"] is not None:
+        print(f"  Кэш очищен: освобождено {max(c['cache_freed_mb'], 0)} МБ")
+    print(f"  Анимации: ускорены (×{c['animation_scale']})")
+    if c["bg_limit"]:
+        print(f"  Ограничение фоновых процессов: ВКЛЮЧЕНО (память {c['ram_gb']:g} ГБ ≤ {cleanup.LOW_RAM_GB} ГБ, "
+              f"не больше {cleanup.MAX_CACHED_PROCESSES})")
+    else:
+        print(f"  Ограничение фоновых процессов: не применялось (память {c['ram_gb']:g} ГБ > {cleanup.LOW_RAM_GB} ГБ)")
     try:
         menu = launcher.install_menu(session)
     except launcher.MenuError as e:
