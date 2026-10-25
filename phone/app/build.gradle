@@ -12,7 +12,7 @@ android {
         targetSdk 35
         versionCode 1
         versionName "0.12.0"
-        ndk { abiFilters "arm64-v8a", "armeabi-v7a" }
+        ndk { abiFilters "arm64-v8a" }  // Python 3.12 in Chaquopy is 64-bit only
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
