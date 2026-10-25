@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, dns, launcher, remote, screensaver, security, wifi
+from . import cleanup, discover, dns, launcher, remote, report, screensaver, security, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -60,7 +60,10 @@ def cmd_accelerate(session: Session) -> int:
         print("Это не Android TV. Ничего не изменено.")
         return 1
     first = not session.has_original()
+    if first:
+        report.save_baseline(session, report.metrics(session.dev))  # the real "before", untouched
     path = session.backup()
+    done = []
     print_info(session.info)
     print(f"  Резервная копия: {path}")
     if first:
@@ -78,6 +81,9 @@ def cmd_accelerate(session: Session) -> int:
     if c["cache_freed_mb"] is not None:
         print(f"  Кэш очищен: освобождено {max(c['cache_freed_mb'], 0)} МБ")
     print(f"  Анимации: ускорены (×{c['animation_scale']})")
+    done += [f"Кэш очищен", "Анимации ускорены"]
+    if c["bg_limit"]:
+        done.append("Фоновые процессы ограничены")
     if c["bg_limit"]:
         print(f"  Ограничение фоновых процессов: ВКЛЮЧЕНО (память {c['ram_gb']:g} ГБ ≤ {cleanup.LOW_RAM_GB} ГБ, "
               f"не больше {cleanup.MAX_CACHED_PROCESSES})")
@@ -99,6 +105,8 @@ def cmd_accelerate(session: Session) -> int:
         print(f"  Регион Wi-Fi: {w['region'].upper()}, менять не нужно")
     for warn in w["warnings"]:
         print(f"  ВНИМАНИЕ: {warn}")
+    if w["region_changed"]:
+        done.append(f"Wi-Fi 5 ГГц включён (регион {w['region_changed'][1]})")
     print("  Блокировка рекламы…")
     d = dns.run(session)
     if d["enabled"]:
@@ -106,12 +114,15 @@ def cmd_accelerate(session: Session) -> int:
               f"{d['blocked']} из {d['probes']}")
     for warn in d["warnings"]:
         print(f"  ВНИМАНИЕ: {warn}")
+    if d["enabled"]:
+        done.append("Реклама блокируется (AdGuard DNS)")
     try:
         menu = launcher.install_menu(session)
     except launcher.MenuError as e:
         print(f"  {e}")
         return 1
     print("  Новое меню установлено и открывается кнопкой «Домой», в том числе после перезагрузки.")
+    done.append("Новое меню")
     for pkg in menu["disabled"]:
         print(f"  Старый домашний экран отключён: {pkg}")
     print("  Кнопки пульта…")
@@ -126,7 +137,13 @@ def cmd_accelerate(session: Session) -> int:
     what = "заставка-часы" if sv["clock"] else "заставка"
     print(f"  Экран: {what} через {sv['screensaver_min']} мин без нажатий, сон через {sv['sleep_min']} мин "
           "(видео не прерывается)")
-    print_security(security.run(session.dev))
+    done.append("Заставка-часы и сон через 5 мин")
+    sec = security.run(session.dev)
+    print_security(sec)
+    if sec.get("ioc_families") and not sec["malware"]:
+        done.append("Вирусов не найдено")
+    out = report.write(session, report.load_baseline(session), report.metrics(session.dev), done)
+    print(f"  Отчёт «до/после»: {out}")
     return 0
 
 
