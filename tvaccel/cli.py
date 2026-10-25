@@ -15,6 +15,7 @@ from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
 from .i18n import tr
+from .keepawake import KeepAwake
 
 # The window (gui.py) replaces these: questions go to the page, the report opens from a button.
 ASK = input
@@ -73,6 +74,11 @@ def warn(text: str) -> None:
 
 
 def cmd_accelerate(session: Session, show_info: bool = True) -> int:
+    with KeepAwake(session):  # no screensaver or sleep mid-run (see keepawake.py)
+        return _accelerate(session, show_info)
+
+
+def _accelerate(session: Session, show_info: bool = True) -> int:
     if not session.info.is_tv:
         print_info(session.info)
         print(tr("Это не Android TV. Ничего не изменено.", "This is not an Android TV. Nothing was changed."))
@@ -200,7 +206,8 @@ def cmd_repeat(session: Session) -> int:
     before = repeat.check(session)
     repeat.print_check(before)
     print(tr("  Применяю всё заново…", "  Applying everything again…"))
-    code = cmd_accelerate(session, show_info=False)
+    with KeepAwake(session):
+        code = _accelerate(session, show_info=False)
     after = repeat.check(session)
     if repeat.anything(before):
         if repeat.anything(after):
@@ -212,6 +219,11 @@ def cmd_repeat(session: Session) -> int:
 
 
 def cmd_restore(session: Session) -> int:
+    with KeepAwake(session):
+        return _restore(session)
+
+
+def _restore(session: Session) -> int:
     result = session.restore()
     for line in result["settings"]:
         print(tr("  настройка возвращена: ", "  setting restored: ") + line)

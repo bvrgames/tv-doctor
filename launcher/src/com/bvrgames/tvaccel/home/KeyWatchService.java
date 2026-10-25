@@ -41,6 +41,26 @@ public class KeyWatchService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        goForeground(0);
+        if (!running) {
+            running = true;
+            new Thread(this::watch, "prime-key").start();
+        }
+        return START_STICKY;
+    }
+
+    // Android 9 can throw from inside startForeground when the service is restarted right after
+    // the app was stopped or updated (NullPointerException on UidRecord in the system). Retry a
+    // second later instead of crashing the menu.
+    private void goForeground(int attempt) {
+        try {
+            foreground(notification());
+        } catch (RuntimeException e) {
+            if (attempt < 5) main.postDelayed(() -> goForeground(attempt + 1), 1000);
+        }
+    }
+
+    private Notification notification() {
         Notification n;
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -51,13 +71,12 @@ public class KeyWatchService extends Service {
             n = new Notification.Builder(this).setSmallIcon(android.R.drawable.ic_media_play)
                     .setContentTitle("Remote keys").build();
         }
+        return n;
+    }
+
+    private void foreground(Notification n) {
         if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         else startForeground(1, n);
-        if (!running) {
-            running = true;
-            new Thread(this::watch, "prime-key").start();
-        }
-        return START_STICKY;
     }
 
     // Follows ActivityManager lines from now on (-T <now>: older lines could be an earlier Prime

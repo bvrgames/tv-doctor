@@ -127,7 +127,17 @@ def wait_online(serial: str, timeout: float = 90) -> bool:
     import time
     host, _, port = serial.partition(":")
     deadline = time.time() + timeout
+    tries = 0
     while time.time() < deadline:
+        tries += 1
+        if tries == 3 and not ON_ANDROID:
+            # The computer itself rejoined Wi-Fi (new address): the adb server keeps a dead
+            # route ("No route to host") until it is restarted.
+            try:
+                run_adb(["kill-server"], timeout=10)
+                run_adb(["start-server"], timeout=20)
+            except AdbError:
+                pass
         try:
             if port:
                 run_adb(["disconnect", serial], timeout=10)

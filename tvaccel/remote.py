@@ -21,6 +21,7 @@ from typing import Optional
 from . import adb
 from .backup import Session, data_root
 from .launcher import MENU_ACTIVITY, MENU_PACKAGE
+from .keepawake import nudge
 from .i18n import tr
 
 NETFLIX = "com.netflix.ninja"
@@ -99,6 +100,7 @@ def run(session: Session, log=print) -> dict:
     target = RUSTV if russian and RUSTV in dev.packages() else "ask"
     # Log access is given to a process when it starts: grant first, then restart the menu.
     dev.shell(f"pm grant {MENU_PACKAGE} android.permission.READ_LOGS")
+    nudge(dev)  # the screensaver lives in the menu: close it before the restart below
     dev.shell(f"am force-stop {MENU_PACKAGE}")
     dev.shell(f"am start -n {MENU_ACTIVITY} --es prime {target}")
     time.sleep(3)

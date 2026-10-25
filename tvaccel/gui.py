@@ -17,8 +17,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
 
-from . import cli
-from . import discover, i18n
+from . import adb, cli, discover, i18n
 from .adb import AdbError
 from .backup import Session
 from .device import detect
@@ -103,8 +102,10 @@ def _command(name: str):
     def go():
         if STATE.session is None:
             _find(None)
-        if ":" in STATE.session.dev.serial:  # network: reconnect if it dropped
-            STATE.session.dev = discover.find_tv(STATE.session.dev.serial)
+        serial = STATE.session.dev.serial
+        if ":" in serial and not adb.wait_online(serial, 60):  # network: reconnect if it dropped
+            raise AdbError(i18n.tr("Телевизор пропал из сети. Проверьте, что он включён, и нажмите «Найти телевизор».",
+                                   "The TV dropped off the network. Check it is on and press \"Find the TV\"."))
         return {"accelerate": cli.cmd_accelerate, "repeat": cli.cmd_repeat,
                 "restore": cli.cmd_restore}[name](STATE.session)
     return go

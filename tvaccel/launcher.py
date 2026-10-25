@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from . import adb
 from .backup import HOME_QUERY, Session
+from .keepawake import nudge
 from .protected import is_protected
 from .i18n import tr
 
@@ -171,6 +172,8 @@ def install_menu(session: Session, apk: str = MENU_APK, reboot_check: bool = Tru
     session.require_backup()
     previous_home = current_home(dev)
 
+    nudge(dev)  # close the clock screensaver first: it lives in the menu, and ending it by an
+    # update would make Android go to sleep right away
     first_install = MENU_PACKAGE not in dev.packages()
     log(tr("  Устанавливаю новое меню…", "  Installing the new menu…"))
     session.install_package(MENU_PACKAGE, apk)
