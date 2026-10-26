@@ -7,13 +7,20 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.Callable;
+import java.util.Collections;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.muntashirakon.adb.AdbStream;
 
@@ -27,16 +34,29 @@ public final class AdbBridge {
 
     private AdbBridge() {}
 
-    // Every command gets a time limit: a TV that stops answering must not hang the program.
-    // On timeout the stream is closed, which also ends the waiting read.
-    private static String timed(AdbStream s, Callable<String> work, int timeoutMs) throws Exception {
-        Future<String> f = calls.submit(work);
+    private interface Work { String run(AdbStream s) throws Exception; }
+
+    // Every command gets a time limit, opening its stream included: a TV that stops answering
+    // (or a connection that silently died when the phone changed networks) must not hang the
+    // program. On timeout the stream is closed, which also ends the waiting read.
+    private static String timed(String destination, Work work, int timeoutMs) throws Exception {
+        AtomicReference<AdbStream> opened = new AtomicReference<>();
+        Future<String> f = calls.submit(() -> {
+            try (AdbStream s = manager().openStream(destination)) {
+                opened.set(s);
+                return work.run(s);
+            }
+        });
         try {
             return f.get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            try { s.close(); } catch (Exception ignored) { }
+            AdbStream s = opened.get();
+            if (s != null) try { s.close(); } catch (Exception ignored) { }
             f.cancel(true);
             throw new TimeoutException("the TV did not answer in " + timeoutMs / 1000 + " s");
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            throw cause instanceof Exception ? (Exception) cause : e;
         }
     }
 
@@ -50,6 +70,14 @@ public final class AdbBridge {
         String want = host + ":" + port;
         if (m.isConnected() && want.equals(serial)) return "device";
         if (m.isConnected()) m.disconnect();
+        // libadb opens its socket with no time limit: an address nobody answers on (the TV moved
+        // to another network) would hang for minutes. Knock first, briefly.
+        try (Socket probe = new Socket()) {
+            probe.connect(new InetSocketAddress(host, port), 3000);
+        } catch (java.io.IOException e) {
+            serial = null;
+            throw new java.io.IOException("the TV does not answer at " + want + ": " + e.getMessage());
+        }
         // Wait as long as "Allow debugging?" may be on the TV (the program gives up after 5 minutes too):
         // a shorter wait made the phone connect again and the TV ask a second time.
         m.setTimeout(Math.max(timeoutMs, 300_000), TimeUnit.MILLISECONDS);
@@ -68,34 +96,44 @@ public final class AdbBridge {
     }
 
     public static String shell(String command, int timeoutMs) throws Exception {
-        try (AdbStream s = manager().openStream("shell:" + command)) {
-            return timed(s, () -> readAll(s), timeoutMs);
-        }
+        return timed("shell:" + command, AdbBridge::readAll, timeoutMs);
     }
 
     // cmd package install -S <size>, with the APK streamed in: no file copy to the TV needed.
     public static String install(String path, int timeoutMs) throws Exception {
         File f = new File(path);
-        try (AdbStream s = manager().openStream("exec:cmd package install -S " + f.length())) {
-            return timed(s, () -> {
-                try (OutputStream out = s.openOutputStream(); InputStream in = new FileInputStream(f)) {
-                    byte[] buf = new byte[64 * 1024];
-                    int n;
-                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-                    out.flush();
-                }
-                return readAll(s);
-            }, timeoutMs);
-        }
+        return timed("exec:cmd package install -S " + f.length(), s -> {
+            try (OutputStream out = s.openOutputStream(); InputStream in = new FileInputStream(f)) {
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                out.flush();
+            }
+            return readAll(s);
+        }, timeoutMs);
     }
 
     public static void reboot() throws Exception {
-        try (AdbStream s = manager().openStream("reboot:")) {
-            timed(s, () -> readAll(s), 10_000);
+        try {
+            timed("reboot:", AdbBridge::readAll, 10_000);
         } catch (Exception ignored) {
             // the connection drops as the TV goes down
         }
         serial = null;
+    }
+
+    // The phone's own IPv4 addresses on local networks, one per line: Wi-Fi, or its hotspot when
+    // the TV is connected to the phone. Mobile data is left out (no TV there).
+    public static String localAddresses() throws Exception {
+        StringBuilder out = new StringBuilder();
+        for (NetworkInterface i : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+            String name = i.getName();
+            if (!i.isUp() || i.isLoopback() || name.matches("(rmnet|ccmni|pdp|clat|v4-|seth_lte|dummy|tun).*")) continue;
+            for (InetAddress a : Collections.list(i.getInetAddresses())) {
+                if (a instanceof Inet4Address && a.isSiteLocalAddress()) out.append(a.getHostAddress()).append('\n');
+            }
+        }
+        return out.toString();
     }
 
     // Reads the whole answer. Not with a plain blocking read: in libadb 3.1.1, when the TV closes a

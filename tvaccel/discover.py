@@ -40,13 +40,24 @@ def _port_open(host: str, port: int, timeout: float) -> bool:
         return False
 
 
-def scan_subnet(port: int = ADB_PORT, timeout: float = 1.0) -> List[str]:
-    """Hosts in our /24 with the adb port open."""
+def _my_addresses() -> List[str]:
+    # On the phone the route to the internet may be mobile data; the TV is on the Wi-Fi or the
+    # phone's hotspot, so ask the phone for its addresses on local networks.
+    if adb.ON_ANDROID:
+        mine = adb.phone_addresses()
+        if mine:
+            return mine
     me = local_ipv4()
-    if not me:
-        return []
-    net = ipaddress.ip_network(f"{me}/24", strict=False)
-    hosts = [str(h) for h in net.hosts() if str(h) != me]
+    return [me] if me else []
+
+
+def scan_subnet(port: int = ADB_PORT, timeout: float = 1.0) -> List[str]:
+    """Hosts in our /24 (each of them, on the phone) with the adb port open."""
+    mine = _my_addresses()
+    hosts = []
+    for me in mine:
+        net = ipaddress.ip_network(f"{me}/24", strict=False)
+        hosts += [str(h) for h in net.hosts() if str(h) not in mine and str(h) not in hosts]
     with ThreadPoolExecutor(max_workers=64) as pool:
         flags = list(pool.map(lambda h: _port_open(h, port, timeout), hosts))
     return [h for h, ok in zip(hosts, flags) if ok]

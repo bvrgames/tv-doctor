@@ -85,6 +85,12 @@ def _run_on_phone(args: List[str], timeout: float) -> str:
     raise AdbError(f"adb {cmd}: not supported on the phone")
 
 
+def phone_addresses() -> List[str]:
+    """The phone's IPv4 addresses on local networks (Wi-Fi, its hotspot)."""
+    from java import jclass  # Chaquopy
+    return str(jclass("com.bvrgames.tvaccel.phone.AdbBridge").localAddresses()).split()
+
+
 def run_adb(args: List[str], timeout: float = 30) -> str:
     if ON_ANDROID:
         return _run_on_phone(args, timeout)

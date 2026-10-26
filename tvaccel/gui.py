@@ -210,12 +210,27 @@ def _command(name: str):
         if STATE.session is None:
             _find(None)
         serial = STATE.session.dev.serial
-        if ":" in serial and not adb.wait_online(serial, 60):  # network: reconnect if it dropped
+        if ":" in serial and not adb.wait_online(serial, 30) and not _found_again():  # network
             raise Offline(i18n.tr("Телевизор пропал из сети. Проверьте, что он включён, и нажмите «Найти телевизор».",
                                    "The TV dropped off the network. Check it is on and press \"Find the TV\"."))
         return {"accelerate": cli.cmd_accelerate, "repeat": cli.cmd_repeat,
                 "restore": cli.cmd_restore}[name](STATE.session)
     return go
+
+
+def _found_again() -> bool:
+    """The TV no longer answers at its address: maybe it (or this device) changed networks and
+    it got a new one. Look for it again; carry on only if it is the same TV."""
+    try:
+        adb.disconnect(STATE.session.dev.serial)
+        dev = discover.find_tv(None)
+        info = detect(dev)
+    except AdbError:
+        return False
+    if info.device_id != STATE.session.info.device_id:
+        return False
+    STATE.session = Session(dev, info)
+    return True
 
 
 class Handler(BaseHTTPRequestHandler):
