@@ -6,6 +6,7 @@ https://github.com/Gathin23/cleanyourtv (MIT, see data/cleanyourtv/LICENSE).
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import time
@@ -58,30 +59,39 @@ def parse_list(path: str) -> List[str]:
     return pkgs
 
 
-def all_lists() -> Dict[str, List[str]]:
+def all_lists() -> Dict[str, dict]:
+    """{folder: {"brand": maker from tv.json, "pkgs": [...]}}"""
     lists = {}
     for name in sorted(os.listdir(DATA)):
         path = os.path.join(DATA, name, "debloat.txt")
         if os.path.isfile(path):
-            lists[name] = parse_list(path)
+            try:
+                with open(os.path.join(DATA, name, "tv.json"), encoding="utf-8") as f:
+                    brand = json.load(f).get("brand", "")
+            except (OSError, ValueError):
+                brand = ""
+            lists[name] = {"brand": brand, "pkgs": parse_list(path)}
     return lists
 
 
-def pick_list(model: str, brand: str, android: str, lists: Dict[str, List[str]]) -> Tuple[str, List[str]]:
-    """Returns (source, packages). Exact model list if there is one, else brand + generic junk."""
+def pick_list(model: str, makers: List[str], android: str, lists: Dict[str, dict]) -> Tuple[str, List[str]]:
+    """Returns (source, packages). The model's own list only if the maker matches too (one model
+    name can belong to two makers), else this maker's common junk + generic junk."""
     m = _slug(model)
-    exact = [n for n in lists if n == m or n.endswith("-" + m) or ("-" + m + "-") in n]
+    ours = {_slug(x) for x in makers if x}
+    exact = [n for n, l in lists.items() if (n == m or n.endswith("-" + m) or ("-" + m + "-") in n)
+             and _slug(l["brand"]) in ours]
     if exact:
         # Several firmwares of one model: prefer the folder naming our Android version.
         exact.sort(key=lambda n: (f"android{android}" not in n, len(n)))
-        return exact[0], lists[exact[0]]
+        return exact[0], lists[exact[0]]["pkgs"]
 
-    counts = Counter(p for pkgs in lists.values() for p in set(pkgs))
-    b = _slug(brand)
-    brand_counts = Counter(p for n, pkgs in lists.items() if b and n.startswith(b + "-") for p in set(pkgs))
+    counts = Counter(p for l in lists.values() for p in set(l["pkgs"]))
+    brand_counts = Counter(p for l in lists.values() if _slug(l["brand"]) in ours for p in set(l["pkgs"]))
     pkgs = {p for p, c in counts.items() if c >= COMMON_MIN_LISTS}
     pkgs |= {p for p, c in brand_counts.items() if c >= BRAND_MIN_LISTS}
-    return tr("общий список", "generic list") + f" ({brand or tr('неизвестный производитель', 'unknown maker')})", \
+    maker = next((x for x in makers if x), "")
+    return tr("общий список", "generic list") + f" ({maker or tr('неизвестный производитель', 'unknown maker')})", \
         sorted(pkgs - FALLBACK_KEEP)
 
 
@@ -111,7 +121,7 @@ def preinstalled(dev: adb.Device) -> set:
 def plan(session: Session) -> dict:
     """What cleanup would do, without changing anything."""
     dev, info = session.dev, session.info
-    source, wanted = pick_list(info.model, info.brand or info.manufacturer, info.android_version, all_lists())
+    source, wanted = pick_list(info.model, [info.brand, info.manufacturer], info.android_version, all_lists())
     installed = set(dev.packages())
     disabled = set(dev.packages("-d"))
     system = preinstalled(dev)
