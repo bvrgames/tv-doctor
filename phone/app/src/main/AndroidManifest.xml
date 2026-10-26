@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- The window is a page served by the app itself on 127.0.0.1 (plain http). -->
-    <application android:label="TV Doctor" android:icon="@android:drawable/ic_media_play"
+    <application android:label="TV Doctor" android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true" android:allowBackup="false"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true"

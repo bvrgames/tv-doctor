@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- TV Doctor icon: a violet TV on a small stand; on its dark screen one glossy capsule,
+       half white, half violet, lying at an angle. -->
+  <defs>
+    <radialGradient id="bg" gradientUnits="userSpaceOnUse" cx="512" cy="471" r="635">
+      <stop offset="0" stop-color="#3a1d7a"/>
+      <stop offset="0.45" stop-color="#170b33"/>
+      <stop offset="1" stop-color="#000"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9b6ff"/>
+      <stop offset="0.35" stop-color="#9a72ff"/>
+      <stop offset="1" stop-color="#5a2fd6"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a23b0"/>
+      <stop offset="1" stop-color="#2a1170"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#140b2b"/>
+      <stop offset="1" stop-color="#07040f"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.16"/>
+      <stop offset="0.45" stop-color="#fff" stop-opacity="0.03"/>
+      <stop offset="0.46" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="stand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b1a99"/>
+      <stop offset="0.5" stop-color="#8a64ff"/>
+      <stop offset="1" stop-color="#3b1a99"/>
+    </linearGradient>
+    <linearGradient id="tube" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9d4ea"/>
+    </linearGradient>
+    <radialGradient id="chest" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#e4e1ee"/>
+      <stop offset="1" stop-color="#9d97b4"/>
+    </radialGradient>
+    <radialGradient id="diaphragm" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#f4f2fa"/>
+      <stop offset="1" stop-color="#c4bfd6"/>
+    </radialGradient>
+    <filter id="glow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="shade" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="screenClip"><rect x="214" y="318" width="596" height="384" rx="22"/></clipPath>
+    <linearGradient id="pillWhite" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#ece8f7"/>
+      <stop offset="1" stop-color="#b9b2d0"/>
+    </linearGradient>
+    <linearGradient id="pillViolet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b79bff"/>
+      <stop offset="0.55" stop-color="#7a4cf5"/>
+      <stop offset="1" stop-color="#3f1aa8"/>
+    </linearGradient>
+    <linearGradient id="pillShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="pillClip"><rect x="-200" y="-78" width="400" height="156" rx="78"/></clipPath>
+  </defs>
+
+  <rect x="-1024" y="-1024" width="3072" height="3072" fill="url(#bg)"/>
+  <ellipse cx="512" cy="520" rx="380" ry="300" fill="#7b4dff" opacity="0.18" filter="url(#soft)"/>
+
+  <!-- shadow on the floor -->
+  <ellipse cx="512" cy="842" rx="230" ry="24" fill="#000" opacity="0.7" filter="url(#soft)"/>
+
+  <!-- stand -->
+  <path d="M478 748 L546 748 L556 818 L468 818 Z" fill="url(#side)"/>
+  <ellipse cx="512" cy="824" rx="156" ry="22" fill="#2a1170"/>
+  <ellipse cx="512" cy="818" rx="156" ry="20" fill="url(#stand)"/>
+  <ellipse cx="490" cy="812" rx="90" ry="5" fill="#fff" opacity="0.25"/>
+
+  <!-- body: the depth slab, then the face -->
+  <rect x="180" y="300" width="664" height="464" rx="56" fill="url(#side)"/>
+  <rect x="180" y="284" width="664" height="458" rx="56" fill="url(#body)"/>
+  <rect x="180" y="284" width="664" height="458" rx="56" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="3"/>
+  <path d="M236 286 H788 A54 54 0 0 1 842 340 V360 C640 330 400 330 182 372 V340 A54 54 0 0 1 236 286 Z" fill="url(#gloss)"/>
+
+  <!-- screen -->
+  <rect x="214" y="318" width="596" height="384" rx="22" fill="url(#screen)"/>
+  <rect x="214" y="318" width="596" height="384" rx="22" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="4"/>
+  <g clip-path="url(#screenClip)">
+    <ellipse cx="512" cy="510" rx="250" ry="150" fill="#6a3cff" opacity="0.28" filter="url(#soft)"/>
+    <g transform="translate(512 510) rotate(-32)">
+      <!-- glow and the shadow on the screen -->
+      <rect x="-200" y="-78" width="400" height="156" rx="78" fill="#8f6bff" opacity="0.55" filter="url(#glow)"/>
+      <rect x="-196" y="-60" width="400" height="156" rx="78" fill="#000" opacity="0.5" filter="url(#glow)"/>
+      <g clip-path="url(#pillClip)">
+        <rect x="-200" y="-78" width="200" height="156" fill="url(#pillWhite)"/>
+        <rect x="0" y="-78" width="200" height="156" fill="url(#pillViolet)"/>
+        <rect x="-3" y="-78" width="6" height="156" fill="#000" opacity="0.18"/>
+        <!-- soft shine along the top, a rim of light at the bottom -->
+        <rect x="-170" y="-64" width="340" height="52" rx="26" fill="url(#pillShine)"/>
+        <ellipse cx="-110" cy="-44" rx="40" ry="9" fill="#fff" opacity="0.9"/>
+        <rect x="-160" y="52" width="320" height="14" rx="7" fill="#fff" opacity="0.14"/>
+      </g>
+      <rect x="-200" y="-78" width="400" height="156" rx="78" fill="none" stroke="#fff" stroke-opacity="0.25" stroke-width="2"/>
+    </g>
+    <rect x="214" y="318" width="596" height="384" fill="url(#glass)"/>
+  </g>
+</svg>

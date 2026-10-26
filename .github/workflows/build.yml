@@ -15,9 +15,11 @@ jobs:
           - os: windows-latest
             sep: ";"
             out: TV-Doctor-Windows
+            icon: art/icon.ico
           - os: macos-latest
             sep: ":"
             out: TV-Doctor-Mac
+            icon: art/icon.icns
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +31,7 @@ jobs:
         shell: bash
         run: |
           pyinstaller --noconfirm --windowed ${{ runner.os == 'Windows' && '--onefile' || '' }} \
-            --name "TV Doctor" \
+            --name "TV Doctor" --icon "${{ matrix.icon }}" \
             --add-data "tvaccel/web${{ matrix.sep }}tvaccel/web" \
             --add-data "tvaccel/data${{ matrix.sep }}tvaccel/data" \
             app.py
