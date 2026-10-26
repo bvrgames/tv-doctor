@@ -101,6 +101,10 @@ def _ready(serial: str, state: str) -> adb.Device:
         )
         e.serial = serial  # ask this TV again, without scanning
         raise e
+    if state in ("authorizing", "connecting"):  # the TV is still deciding: keep waiting, like for OK
+        e = NeedsOk(state)
+        e.serial = serial
+        raise e
     if state != "device":
         raise adb.AdbError(f"{serial}: " + tr(f"устройство в состоянии «{state}»", f"device is \"{state}\""))
     return adb.Device(serial)

@@ -37,6 +37,7 @@ h2{font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
 .bar div{height:100%;width:0;border-radius:7px;background:linear-gradient(90deg,#8a4ce8,#b08cff);transition:width .8s ease;position:relative;overflow:hidden}
 .bar div::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shine 1.6s linear infinite}
 @keyframes shine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.detail{margin-top:26px;color:rgba(255,255,255,.35);font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;max-width:560px;word-break:break-word}
 .count{color:var(--dim);font-size:16px;margin-top:14px}
 .done{font-size:54px;color:var(--ok)}
 .report{width:100%;max-width:720px;height:62vh;border:1px solid var(--line);border-radius:18px;margin-top:26px;background:#0b0b10}
@@ -120,6 +121,7 @@ h2{font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
   <h2 id="errTitle"></h2>
   <p class="sub" id="errSub"></p>
   <button class="big" id="retryBtn" data-t="retry"></button>
+  <p class="detail" id="errDetail"></p>
 </section>
 
 <div class="modal" id="modal"><div class="box"><p id="q"></p>
@@ -203,6 +205,7 @@ function paint(){
   $("doneSub").textContent = t(lastJob === "restore" ? "doneUndo" : "doneAcc");
   $("report").style.display = lastJob === "restore" ? "none" : "";
   const [et, es] = t("err")[s.error] || t("err").other; $("errTitle").textContent = et; $("errSub").textContent = es;
+  $("errDetail").textContent = s.detail || "";
 }
 
 async function post(path, body){ return (await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})})).json(); }
@@ -231,6 +234,7 @@ async function tick(){
     else show("error");
   }
   else if (s.link === "found" && ["look","debug","allow"].includes(screen)) show("ready");
+  else if (s.link === "failed" && ["look","debug","allow"].includes(screen)) { lastJob = ""; show("error"); }
   else if (s.link === "unauthorized" && ["look","debug"].includes(screen)) show("allow");
   else if (s.link === "searching" && s.looks > 0 && screen === "look") { step = 0; stepSince = Date.now(); show("debug"); }
   else if (s.link === "searching" && screen === "allow") show("debug");

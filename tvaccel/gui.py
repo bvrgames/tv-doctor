@@ -27,6 +27,7 @@ from .device import detect
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 IDLE_EXIT_S = 60
+ASK_WAIT_S = 300  # how long to wait for OK on "Allow debugging?"
 
 
 class State:
@@ -39,7 +40,8 @@ class State:
         self.job: Optional[str] = None
         self.stage: Optional[dict] = None    # {"n", "total", "text"} of the running job
         self.error: Optional[str] = None     # notfound | unauthorized | offline | nottv | other
-        self.link = "idle"                   # the watcher: idle | searching | unauthorized | found
+        self.detail: Optional[str] = None    # the error itself (shown small, for support)
+        self.link = "idle"                   # the watcher: idle | searching | unauthorized | found | failed
         self.looks = 0                       # the watcher's finished rounds
         self.question: Optional[str] = None
         self.answer: Optional[str] = None
@@ -93,12 +95,12 @@ def _job(name: str, fn):
         if STATE.busy:
             return False
         STATE.busy, STATE.result, STATE.log = True, None, []
-        STATE.job, STATE.stage, STATE.error = name, None, None
+        STATE.job, STATE.stage, STATE.error, STATE.detail = name, None, None, None
         STATE.link = "idle"  # stops the watcher
 
     def run():
         out = _Lines()
-        ok, kind = False, "other"
+        ok, kind, detail = False, "other", None
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
                 ok = fn() in (0, None, True)
@@ -106,13 +108,16 @@ def _job(name: str, fn):
                 kind = "nottv"
         except AdbError as e:
             out.write(i18n.tr("Ошибка: ", "Error: ") + str(e) + "\n")
-            kind = _kind(e)
+            kind, detail = _kind(e), f"{type(e).__name__}: {e}"
         except Exception as e:  # never leave the page spinning
             out.write(f"{type(e).__name__}: {e}\n")
+            detail = f"{type(e).__name__}: {e}"
         out.write("\n")
         with STATE.lock:
             STATE.busy, STATE.result = False, "ok" if ok else "error"
             STATE.error = None if ok else kind
+            if not ok:  # without an exception, the last lines say what went wrong
+                STATE.detail = detail or " / ".join(l.strip() for l in STATE.log[-4:] if l.strip())
 
     threading.Thread(target=run, daemon=True).start()
     return True
@@ -133,7 +138,8 @@ def _watch():
     """Look for the TV every few seconds until it answers (or a job starts). The person is
     turning on debugging meanwhile; the page follows STATE.link and moves on by itself.
     "unauthorized" means a TV answered but waits for OK on "Allow debugging?" (on the phone,
-    connecting simply waits while that question is on screen)."""
+    connecting simply waits while that question is on screen). Once the TV has let us in, an
+    error is a real failure ("failed"): the page shows it with "Try again" instead of waiting."""
     def still_looking():
         with STATE.lock:
             return STATE.link in ("searching", "unauthorized") and not STATE.busy
@@ -143,8 +149,14 @@ def _watch():
             if STATE.link in ("searching", "unauthorized"):
                 STATE.link = value
 
-    host = None  # once a TV asks "Allow debugging?", keep asking that one only
+    def fail(kind, e):
+        with STATE.lock:
+            STATE.link, STATE.error, STATE.detail = "failed", kind, f"{type(e).__name__}: {e}"
+
+    host = None     # once a TV asks "Allow debugging?", keep asking that one only
+    asked_at = 0.0  # when it first asked
     while still_looking():
+        dev = None
         try:
             if host:
                 hosts = [host]
@@ -156,18 +168,30 @@ def _watch():
                 asking = threading.Timer(1.5, set_link, ("unauthorized",))  # slow answer: the question is up
                 asking.start()
                 try:
-                    _connected(discover.find_tv(h))
+                    dev = discover.find_tv(h)
                 finally:
                     asking.cancel()
-                with STATE.lock:
-                    STATE.link = "found"
-                return
-            set_link("searching")
+                break
+            if not dev:
+                set_link("searching")
         except NeedsOk as e:
             host = e.serial or host
+            asked_at = asked_at or time.time()
+            if time.time() - asked_at > ASK_WAIT_S:  # nobody pressed OK
+                return fail("unauthorized", e)
             set_link("unauthorized")
-        except Exception:  # AdbError, or adb still downloading: try again
-            set_link("unauthorized" if host else "searching")
+        except Exception as e:  # AdbError, or adb still downloading
+            if host:  # the TV asked, so it is there: this is not "not found yet"
+                return fail("other", e)
+            set_link("searching")
+        if dev:
+            try:
+                _connected(dev)  # the TV let us in: read what it is
+            except Exception as e:
+                return fail("offline" if isinstance(e, Offline) else "other", e)
+            with STATE.lock:
+                STATE.link = "found"
+            return
         with STATE.lock:
             STATE.looks += 1
         time.sleep(2)
@@ -177,7 +201,7 @@ def _start_watch() -> None:
     with STATE.lock:
         if STATE.busy or STATE.link in ("searching", "unauthorized"):
             return
-        STATE.link, STATE.error, STATE.result, STATE.looks = "searching", None, None, 0
+        STATE.link, STATE.error, STATE.detail, STATE.result, STATE.looks = "searching", None, None, None, 0
     threading.Thread(target=_watch, daemon=True).start()
 
 
@@ -220,7 +244,7 @@ class Handler(BaseHTTPRequestHandler):
                                                   "android": s.info.android_version, "serial": s.dev.serial,
                                                   "ready": s.has_original()},
                     "phone": adb.ON_ANDROID, "link": STATE.link, "looks": STATE.looks, "job": STATE.job,
-                    "stage": STATE.stage, "error": STATE.error,
+                    "stage": STATE.stage, "error": STATE.error, "detail": STATE.detail,
                     "busy": STATE.busy, "result": STATE.result, "log": STATE.log[-400:],
                     "question": STATE.question,
                     "report": bool(s and os.path.exists(os.path.join(s.dir, "report.html"))),

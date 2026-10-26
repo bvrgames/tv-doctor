@@ -30,7 +30,9 @@ public final class AdbBridge {
         String want = host + ":" + port;
         if (m.isConnected() && want.equals(serial)) return "device";
         if (m.isConnected()) m.disconnect();
-        m.setTimeout(Math.max(timeoutMs, 30_000), TimeUnit.MILLISECONDS);  // time to press "Allow" on the TV
+        // Wait as long as "Allow debugging?" may be on the TV (the program gives up after 5 minutes too):
+        // a shorter wait made the phone connect again and the TV ask a second time.
+        m.setTimeout(Math.max(timeoutMs, 300_000), TimeUnit.MILLISECONDS);
         boolean ok = m.connect(host, port);
         serial = ok ? want : null;
         return ok ? "device" : "unauthorized";
