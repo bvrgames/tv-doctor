@@ -14,10 +14,10 @@ jobs:
         include:
           - os: windows-latest
             sep: ";"
-            out: TV-Acceleration-Windows
+            out: TV-Doctor-Windows
           - os: macos-latest
             sep: ":"
-            out: TV-Acceleration-Mac
+            out: TV-Doctor-Mac
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           pyinstaller --noconfirm --windowed ${{ runner.os == 'Windows' && '--onefile' || '' }} \
-            --name "TV Acceleration" \
+            --name "TV Doctor" \
             --add-data "tvaccel/web${{ matrix.sep }}tvaccel/web" \
             --add-data "tvaccel/data${{ matrix.sep }}tvaccel/data" \
             app.py
@@ -38,9 +38,9 @@ jobs:
         run: |
           cd dist
           if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a "../${{ matrix.out }}.zip" "TV Acceleration.exe"
+            7z a "../${{ matrix.out }}.zip" "TV Doctor.exe"
           else
-            ditto -c -k --keepParent "TV Acceleration.app" "../${{ matrix.out }}.zip"
+            ditto -c -k --keepParent "TV Doctor.app" "../${{ matrix.out }}.zip"
           fi
       - uses: actions/upload-artifact@v4
         with:
@@ -73,14 +73,14 @@ jobs:
           export PHONE_KEYSTORE="$RUNNER_TEMP/phone-key.jks"
           cp -r tvaccel phone/app/src/main/python/
           gradle -p phone assembleRelease --no-daemon --stacktrace
-          cp phone/app/build/outputs/apk/release/app-release.apk TV-Acceleration-Phone.apk
+          cp phone/app/build/outputs/apk/release/app-release.apk TV-Doctor-Phone.apk
           rm -f "$PHONE_KEYSTORE"
       - uses: actions/upload-artifact@v4
         with:
-          name: TV-Acceleration-Phone
-          path: TV-Acceleration-Phone.apk
+          name: TV-Doctor-Phone
+          path: TV-Doctor-Phone.apk
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: TV-Acceleration-Phone.apk
+          files: TV-Doctor-Phone.apk

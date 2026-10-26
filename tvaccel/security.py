@@ -67,7 +67,7 @@ RISKY = {
 
 # ---- known malware -------------------------------------------------------------
 def _fetch(url: str, timeout: float = 30) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "tv-acceleration"})
+    req = urllib.request.Request(url, headers={"User-Agent": "tv-doctor"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read().decode("utf-8", "replace")
 

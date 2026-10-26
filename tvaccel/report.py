@@ -141,7 +141,7 @@ def render(info, before: dict, after: dict, done: list) -> str:
               "Ничего не удалено: приложения отключены и возвращаются кнопкой «Вернуть как было».",
               f"“Before”: {taken}, before the program's first run; “after”: right after the check restart. "
               "Nothing was uninstalled: apps are turned off and come back with “Undo”.")
-    return f"""<!doctype html><html lang="{lang()}"><head><meta charset="utf-8"><title>TV Acceleration — {tr("отчёт", "report")}</title>
+    return f"""<!doctype html><html lang="{lang()}"><head><meta charset="utf-8"><title>TV Doctor — {tr("отчёт", "report")}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
@@ -170,7 +170,7 @@ h1{{font-size:46px;font-weight:700;letter-spacing:-.02em;margin:10px 0 6px}}
 .foot{{margin-top:30px;font-size:13px;opacity:.45;line-height:1.6}}
 @media (max-width:760px){{.stats{{grid-template-columns:1fr}}h1{{font-size:34px}}.page{{padding:32px 16px}}}}
 </style></head><body><div class="glow"></div><div class="page">
-<div class="brand">TV Acceleration · {tr("отчёт", "report")}</div>
+<div class="brand">TV Doctor · {tr("отчёт", "report")}</div>
 <h1>{device}</h1>
 <div class="sub">Android {html.escape(info.android_version)} · {info.ram_nominal_gb:g} {tr("ГБ памяти", "GB RAM")} · {html.escape(after["taken_at"])}</div>
 <div class="stats">

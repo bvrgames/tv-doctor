@@ -1,4 +1,4 @@
-"""Install the TV Acceleration menu and make it the home screen, safely.
+"""Install the TV Doctor menu and make it the home screen, safely.
 
 Order matters: the old home screen is turned off only after Home is seen opening the new
 menu. If any check fails, everything done here is undone automatically.

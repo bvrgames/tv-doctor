@@ -1,4 +1,4 @@
-# TV Acceleration
+# TV Doctor
 
 [Русский](README.md) · **English**
 
@@ -32,11 +32,11 @@ Everything is shown in the TV's language: Russian if the TV is in Russian, other
 ## How to use
 
 1. Download the program for your device (Releases):
-   - **Windows** — `TV-Acceleration-Windows.zip`, containing `TV Acceleration.exe` (built automatically, not yet tested on Windows).
+   - **Windows** — `TV-Doctor-Windows.zip`, containing `TV Doctor.exe` (built automatically, not yet tested on Windows).
      On first run Windows may warn you: "More info → Run anyway".
-   - **Mac** — `TV-Acceleration-Mac.zip`, containing `TV Acceleration.app`.
+   - **Mac** — `TV-Doctor-Mac.zip`, containing `TV Doctor.app`.
      On first run: right-click → Open → Open.
-   - **Android phone** (no computer needed) — `TV-Acceleration-Phone.apk`.
+   - **Android phone** (no computer needed) — `TV-Doctor-Phone.apk`.
 2. The TV and the computer (or phone) must be on the same Wi-Fi.
 3. Turn on debugging on the TV — the program walks you through it with pictures:
    Settings → Device Preferences → About → press "Build" 7 times → back → Developer options → turn on "USB debugging".

@@ -1,4 +1,4 @@
-"""TV Acceleration command line.
+"""TV Doctor command line.
 
     python3 -m tvaccel accelerate [--host IP]   «Ускорить»
     python3 -m tvaccel repeat     [--host IP]   «Повторить после обновления»
@@ -249,7 +249,7 @@ def _restore(session: Session) -> int:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(prog="tvaccel", description="TV Acceleration")
+    parser = argparse.ArgumentParser(prog="tvaccel", description="TV Doctor")
     parser.add_argument("command", choices=["accelerate", "repeat", "restore", "info"])
     parser.add_argument("--host", help=tr("IP телевизора (по умолчанию — поиск в сети)",
                                           "TV IP address (default: search the network)"))

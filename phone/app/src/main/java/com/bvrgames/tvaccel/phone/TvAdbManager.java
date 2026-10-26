@@ -49,7 +49,7 @@ final class TvAdbManager extends AbsAdbConnectionManager {
         gen.initialize(2048);
         KeyPair pair = gen.generateKeyPair();
         long now = System.currentTimeMillis();
-        X500Name name = new X500Name("CN=TV Acceleration");
+        X500Name name = new X500Name("CN=TV Doctor");
         JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(name, BigInteger.valueOf(now),
                 new Date(now), new Date(now + 20L * 365 * 86_400_000L), name, pair.getPublic());
         certificate = new JcaX509CertificateConverter().getCertificate(
@@ -61,5 +61,5 @@ final class TvAdbManager extends AbsAdbConnectionManager {
 
     @Override protected PrivateKey getPrivateKey() { return privateKey; }
     @Override protected Certificate getCertificate() { return certificate; }
-    @Override protected String getDeviceName() { return "TV Acceleration"; }
+    @Override protected String getDeviceName() { return "TV Doctor"; }
 }

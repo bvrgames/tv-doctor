@@ -1,4 +1,4 @@
-"""Remote keys, without root, through the TV Acceleration menu.
+"""Remote keys, without root, through the TV Doctor menu.
 
 - Netflix key: the system sends nflx://; the menu's NetflixKeyActivity takes it while Netflix
   is off or missing and opens SmartTube (only if the person installed it) or YouTube.

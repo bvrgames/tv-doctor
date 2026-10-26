@@ -23,7 +23,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         TextView loading = new TextView(this);
-        loading.setText("TV Acceleration…");
+        loading.setText("TV Doctor…");
         loading.setTextColor(Color.WHITE);
         loading.setGravity(Gravity.CENTER);
         loading.setBackgroundColor(0xFF07070A);
