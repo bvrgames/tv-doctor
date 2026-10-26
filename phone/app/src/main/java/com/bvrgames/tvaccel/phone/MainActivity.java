@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
         setContentView(loading);
 
         AdbBridge.init(this);
+        PhoneWifi.init(this);
         keepToWifi();
         if (!Python.isStarted()) Python.start(new AndroidPlatform(this));
         new Thread(() -> {
@@ -73,6 +74,11 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient());  // confirm() for "Undo"
         setContentView(web);
         web.loadUrl(url);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
+        if (code == PhoneWifi.ASK_LOCATION) PhoneWifi.onPermissionAnswer();
     }
 
     @Override

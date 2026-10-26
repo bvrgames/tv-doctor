@@ -69,7 +69,14 @@ def signal_quality(rssi: int) -> str:
 
 # ---- what the computer sees -----------------------------------------------
 def computer_5ghz_channels() -> Optional[Set[int]]:
-    """5 GHz channels the computer running this tool can see; None if it can't scan."""
+    """5 GHz channels the computer (or phone) running this tool can see; None if it can't scan."""
+    if adb.ON_ANDROID:  # the phone app scans through Android (asks for location the first time)
+        from java import jclass  # Chaquopy
+        try:
+            out = jclass("com.bvrgames.tvaccel.phone.PhoneWifi").fiveGhzChannels()
+        except Exception:
+            return None
+        return None if out is None else {int(c) for c in str(out).split()}
     system = platform.system()
     try:
         if system == "Darwin":
@@ -200,9 +207,9 @@ def run(session: Session, ask=input, log=print) -> dict:
         return report
     if pc_chans is None:
         report["warnings"].append(tr(f"Регион Wi-Fi устройства {region.upper()}, а страна {code}. "
-                                     "Проверить 5 ГГц не удалось: этот компьютер не умеет сканировать Wi-Fi.",
+                                     "Проверить 5 ГГц не удалось: это устройство не смогло просканировать Wi-Fi.",
                                      f"The device's Wi-Fi region is {region.upper()}, the country is {code}. "
-                                     "Could not check 5 GHz: this computer can't scan Wi-Fi."))
+                                     "Could not check 5 GHz: this device could not scan Wi-Fi."))
         return report
     if not missing:
         return report  # region differs, but nothing is actually missing: leave it
