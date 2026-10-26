@@ -1,9 +1,11 @@
-"""The program's window: a local web page (http://127.0.0.1) with the guide and three buttons.
+"""The program's window: a local web page (http://127.0.0.1) that leads the person screen by screen.
 
-The page talks to this server; each button runs the same command as the terminal version
-in a background thread, and its printed lines are shown on the page. A question the run
-asks (the country, when the IP looks like a VPN) is shown on the page and waits for the
-answer. The server stops a minute after the page is closed.
+The page talks to this server. While the person turns on debugging, a watcher looks for the TV
+in the background and the page moves on by itself once it answers. Each big button runs the same
+command as the terminal version in a background thread; its steps drive the progress bar, and a
+failure comes back as a simple kind ("notfound", "unauthorized", ...) the page explains in plain
+words. A question the run asks (the country, when the IP looks like a VPN) is shown on the page
+and waits for the answer. The server stops a minute after the page is closed.
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ from typing import Optional
 
 from . import adb, cli, discover, i18n
 from .adb import AdbError
+from .discover import NeedsOk, NotFound
 from .backup import Session
 from .device import detect
 
@@ -33,6 +36,11 @@ class State:
         self.busy = False
         self.log: list = []
         self.result: Optional[str] = None   # "ok" | "error"
+        self.job: Optional[str] = None
+        self.stage: Optional[dict] = None    # {"n", "total", "text"} of the running job
+        self.error: Optional[str] = None     # notfound | unauthorized | offline | nottv | other
+        self.link = "idle"                   # the watcher: idle | searching | unauthorized | found
+        self.looks = 0                       # the watcher's finished rounds
         self.question: Optional[str] = None
         self.answer: Optional[str] = None
         self.answered = threading.Event()
@@ -40,6 +48,20 @@ class State:
 
 
 STATE = State()
+
+
+class Offline(AdbError):
+    pass
+
+
+def _kind(e: Exception) -> str:
+    if isinstance(e, NeedsOk):
+        return "unauthorized"
+    if isinstance(e, NotFound):
+        return "notfound"
+    if isinstance(e, Offline):
+        return "offline"
+    return "other"
 
 
 class _Lines(io.TextIOBase):
@@ -66,36 +88,97 @@ def _ask(prompt: str) -> str:
         return STATE.answer or ""
 
 
-def _job(fn):
+def _job(name: str, fn):
     with STATE.lock:
         if STATE.busy:
             return False
         STATE.busy, STATE.result, STATE.log = True, None, []
+        STATE.job, STATE.stage, STATE.error = name, None, None
+        STATE.link = "idle"  # stops the watcher
 
     def run():
         out = _Lines()
-        ok = False
+        ok, kind = False, "other"
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
                 ok = fn() in (0, None, True)
+            if not ok and STATE.session and not STATE.session.info.is_tv:
+                kind = "nottv"
         except AdbError as e:
             out.write(i18n.tr("Ошибка: ", "Error: ") + str(e) + "\n")
+            kind = _kind(e)
         except Exception as e:  # never leave the page spinning
             out.write(f"{type(e).__name__}: {e}\n")
         out.write("\n")
         with STATE.lock:
             STATE.busy, STATE.result = False, "ok" if ok else "error"
+            STATE.error = None if ok else kind
 
     threading.Thread(target=run, daemon=True).start()
     return True
 
 
 def _find(host: Optional[str]):
-    dev = discover.find_tv(host or None)
-    i18n.set_from_tv(dev)
-    STATE.session = Session(dev, detect(dev))
+    _connected(discover.find_tv(host or None))
     cli.print_info(STATE.session.info)
     return 0
+
+
+def _connected(dev) -> None:
+    i18n.set_from_tv(dev)
+    STATE.session = Session(dev, detect(dev))
+
+
+def _watch():
+    """Look for the TV every few seconds until it answers (or a job starts). The person is
+    turning on debugging meanwhile; the page follows STATE.link and moves on by itself.
+    "unauthorized" means a TV answered but waits for OK on "Allow debugging?" (on the phone,
+    connecting simply waits while that question is on screen)."""
+    def still_looking():
+        with STATE.lock:
+            return STATE.link in ("searching", "unauthorized") and not STATE.busy
+
+    def set_link(value):
+        with STATE.lock:
+            if STATE.link in ("searching", "unauthorized"):
+                STATE.link = value
+
+    host = None  # once a TV asks "Allow debugging?", keep asking that one only
+    while still_looking():
+        try:
+            if host:
+                hosts = [host]
+            elif any(st == "device" for _, st in adb.list_devices()):
+                hosts = [None]  # already connected (debugging was on and allowed)
+            else:
+                hosts = [f"{h}:{discover.ADB_PORT}" for h in discover.scan_subnet()]
+            for h in hosts:
+                asking = threading.Timer(1.5, set_link, ("unauthorized",))  # slow answer: the question is up
+                asking.start()
+                try:
+                    _connected(discover.find_tv(h))
+                finally:
+                    asking.cancel()
+                with STATE.lock:
+                    STATE.link = "found"
+                return
+            set_link("searching")
+        except NeedsOk as e:
+            host = e.serial or host
+            set_link("unauthorized")
+        except Exception:  # AdbError, or adb still downloading: try again
+            set_link("unauthorized" if host else "searching")
+        with STATE.lock:
+            STATE.looks += 1
+        time.sleep(2)
+
+
+def _start_watch() -> None:
+    with STATE.lock:
+        if STATE.busy or STATE.link in ("searching", "unauthorized"):
+            return
+        STATE.link, STATE.error, STATE.result, STATE.looks = "searching", None, None, 0
+    threading.Thread(target=_watch, daemon=True).start()
 
 
 def _command(name: str):
@@ -104,7 +187,7 @@ def _command(name: str):
             _find(None)
         serial = STATE.session.dev.serial
         if ":" in serial and not adb.wait_online(serial, 60):  # network: reconnect if it dropped
-            raise AdbError(i18n.tr("Телевизор пропал из сети. Проверьте, что он включён, и нажмите «Найти телевизор».",
+            raise Offline(i18n.tr("Телевизор пропал из сети. Проверьте, что он включён, и нажмите «Найти телевизор».",
                                    "The TV dropped off the network. Check it is on and press \"Find the TV\"."))
         return {"accelerate": cli.cmd_accelerate, "repeat": cli.cmd_repeat,
                 "restore": cli.cmd_restore}[name](STATE.session)
@@ -136,6 +219,8 @@ class Handler(BaseHTTPRequestHandler):
                     "tv": None if s is None else {"name": f"{s.info.manufacturer} {s.info.model}",
                                                   "android": s.info.android_version, "serial": s.dev.serial,
                                                   "ready": s.has_original()},
+                    "phone": adb.ON_ANDROID, "link": STATE.link, "looks": STATE.looks, "job": STATE.job,
+                    "stage": STATE.stage, "error": STATE.error,
                     "busy": STATE.busy, "result": STATE.result, "log": STATE.log[-400:],
                     "question": STATE.question,
                     "report": bool(s and os.path.exists(os.path.join(s.dir, "report.html"))),
@@ -159,10 +244,14 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(length) or b"{}")
         path = self.path.split("?", 1)[0]
+        if path == "/api/watch":
+            _start_watch()
+            return self._json({"ok": True})
         if path == "/api/find":
-            return self._json({"started": _job(lambda: _find(body.get("host")))})
+            return self._json({"started": _job("find", lambda: _find(body.get("host")))})
         if path in ("/api/accelerate", "/api/repeat", "/api/restore"):
-            return self._json({"started": _job(_command(path.rsplit("/", 1)[1]))})
+            name = path.rsplit("/", 1)[1]
+            return self._json({"started": _job(name, _command(name))})
         if path == "/api/lang":  # the window's language: the system's on first load, or the RU / EN switch
             if body.get("choose") in ("ru", "en"):
                 i18n.choose(body["choose"])
@@ -177,10 +266,16 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "unknown"}, 404)
 
 
+def _stage(n: int, total: int, text: str) -> None:
+    with STATE.lock:
+        STATE.stage = {"n": n, "total": total, "text": text}
+
+
 def serve(port: int = 0):
     """Start the window's server in the background; returns (server, url). The phone app uses
     this directly and shows the url in its own WebView."""
     cli.ASK, cli.OPEN_REPORT = _ask, False
+    cli.STAGE = _stage
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, f"http://127.0.0.1:{server.server_address[1]}/"

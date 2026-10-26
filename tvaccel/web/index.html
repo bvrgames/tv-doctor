@@ -4,167 +4,239 @@
 <title>TV Doctor</title>
 <link rel="icon" href="icon.png">
 <style>
-:root{--bg:#07070a;--card:rgba(255,255,255,.06);--line:rgba(255,255,255,.09);--dim:rgba(255,255,255,.62);--accent:#9a5cf0;--ok:#7ee2a8;--bad:#ff8a8a}
+:root{--bg:#07070a;--line:rgba(255,255,255,.09);--dim:rgba(255,255,255,.62);--ok:#7ee2a8}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:#fff;font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
+html,body{height:100%}
+body{background:var(--bg);color:#fff;font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,Arial,sans-serif}
 .glow{position:fixed;inset:0;pointer-events:none;background:radial-gradient(900px 560px at 15% -10%,rgba(150,60,200,.38),rgba(7,7,10,0) 70%),radial-gradient(800px 520px at 105% 105%,rgba(30,110,190,.26),rgba(7,7,10,0) 70%)}
-.page{max-width:980px;margin:0 auto;padding:40px 24px 60px;position:relative}
-h1{font-size:34px;font-weight:700;letter-spacing:-.02em}
-.sub{color:var(--dim);margin-top:6px;font-size:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:24px;margin-top:22px}
-.card h2{font-size:19px;font-weight:600;margin-bottom:14px;display:flex;gap:10px;align-items:center}
-.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.12);font-size:14px}
-.guide{display:grid;grid-template-columns:270px 1fr;gap:22px;align-items:start}
-.guide img{width:100%;border-radius:14px;border:1px solid var(--line);display:block}
-.steps{list-style:none;counter-reset:s}
-.steps li{counter-increment:s;padding:10px 12px 10px 44px;position:relative;border-radius:12px;cursor:pointer;color:var(--dim);font-size:16px;line-height:1.4}
-.steps li::before{content:counter(s);position:absolute;left:12px;top:10px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.1);display:grid;place-items:center;font-size:12px}
-.steps li.on{background:rgba(255,255,255,.08);color:#fff}
-.steps li.on::before{background:var(--accent)}
-.hint{color:var(--dim);font-size:14px;margin-top:12px;line-height:1.5}
-.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-button{font:inherit;font-size:16px;font-weight:600;border:0;border-radius:14px;padding:14px 20px;cursor:pointer;color:#fff;background:rgba(255,255,255,.12);transition:transform .15s,background .15s}
-button:hover{background:rgba(255,255,255,.18)}
-button:active{transform:scale(.98)}
-button.primary{background:linear-gradient(135deg,#8a4ce8,#3a6fe0);font-size:19px;padding:18px 34px}
-button:disabled{opacity:.4;cursor:default;transform:none}
-input{font:inherit;font-size:15px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:#fff;border-radius:12px;padding:12px 14px;width:190px}
-.tv{font-size:16px;color:var(--dim)}
-.tv b{color:#fff}
-.log{margin-top:16px;background:rgba(0,0,0,.35);border-radius:14px;padding:14px 16px;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:rgba(255,255,255,.82);max-height:340px;overflow:auto;white-space:pre-wrap;display:none}
-.status{margin-top:18px;font-size:17px;min-height:24px}
-.status.ok{font-size:24px;font-weight:700}
-.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:r .8s linear infinite;vertical-align:-2px;margin-right:8px}
-@keyframes r{to{transform:rotate(360deg)}}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;padding:16px}
-.modal .box{background:#17141c;border:1px solid var(--line);border-radius:20px;padding:24px;max-width:440px;width:100%}
-.modal p{font-size:17px;line-height:1.45;margin-bottom:16px}
-.modal input{width:100%;margin-bottom:14px}
-.lang{position:absolute;top:24px;right:24px;display:flex;background:rgba(255,255,255,.08);border-radius:10px;padding:3px}
-.lang button{font-size:13px;padding:6px 10px;border-radius:8px;background:none;color:var(--dim)}
+.top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:18px 24px;z-index:2}
+.brand{display:flex;gap:10px;align-items:center;font-weight:600;font-size:16px;color:var(--dim)}
+.brand img{width:28px;height:28px;border-radius:7px}
+.lang{display:flex;background:rgba(255,255,255,.08);border-radius:10px;padding:3px}
+.lang button{font:inherit;font-size:13px;font-weight:600;padding:6px 10px;border:0;border-radius:8px;background:none;color:var(--dim);cursor:pointer}
 .lang button.on{background:rgba(255,255,255,.16);color:#fff}
-@media (max-width:720px){.guide{grid-template-columns:1fr}h1{font-size:28px}.page{padding:24px 16px 48px}button.primary{width:100%}}
+.screen{display:none;min-height:100%;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:84px 24px 48px;position:relative;max-width:720px;margin:0 auto}
+.screen.on{display:flex}
+.hero{width:132px;height:132px;border-radius:30px;margin-bottom:28px;box-shadow:0 20px 60px rgba(122,77,255,.35)}
+h1{font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+h2{font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.sub{color:var(--dim);font-size:19px;line-height:1.45;margin-top:14px;max-width:560px}
+.step{color:var(--dim);font-size:15px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px}
+.shot{max-width:100%;max-height:46vh;width:auto;border-radius:18px;border:1px solid var(--line);margin:26px 0 4px;display:block}
+.big{font:inherit;font-size:21px;font-weight:600;border:0;border-radius:18px;padding:20px 54px;margin-top:34px;cursor:pointer;color:#fff;
+  background:linear-gradient(135deg,#8a4ce8,#5a3ee0);box-shadow:0 12px 40px rgba(122,77,255,.35);transition:transform .15s}
+.big:active{transform:scale(.97)}
+.link{font:inherit;font-size:16px;border:0;background:none;color:var(--dim);cursor:pointer;padding:8px 6px;text-decoration:underline;text-underline-offset:4px}
+.link:hover{color:#fff}
+.side{margin-top:44px;color:var(--dim);font-size:15px}
+.side .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:4px}
+.wait{display:flex;gap:12px;align-items:center;justify-content:center;margin-top:30px;font-size:18px;color:var(--dim)}
+.spin{width:20px;height:20px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:r .8s linear infinite}
+@keyframes r{to{transform:rotate(360deg)}}
+.bar{width:100%;max-width:520px;height:14px;border-radius:7px;background:rgba(255,255,255,.1);margin-top:36px;overflow:hidden}
+.bar div{height:100%;width:0;border-radius:7px;background:linear-gradient(90deg,#8a4ce8,#b08cff);transition:width .8s ease;position:relative;overflow:hidden}
+.bar div::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shine 1.6s linear infinite}
+@keyframes shine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.count{color:var(--dim);font-size:16px;margin-top:14px}
+.done{font-size:54px;color:var(--ok)}
+.report{width:100%;max-width:720px;height:62vh;border:1px solid var(--line);border-radius:18px;margin-top:26px;background:#0b0b10}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;padding:16px;z-index:5}
+.modal .box{background:#17141c;border:1px solid var(--line);border-radius:20px;padding:24px;max-width:440px;width:100%;text-align:center}
+.modal p{font-size:18px;line-height:1.45;margin-bottom:16px}
+.modal input{font:inherit;font-size:16px;width:100%;margin-bottom:6px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:#fff;border-radius:12px;padding:12px 14px}
+.modal .big{margin-top:12px;padding:16px 40px}
+@media (max-width:600px){h1{font-size:32px}h2{font-size:24px}.sub{font-size:17px}.big{width:100%;padding:18px 20px}.hero{width:108px;height:108px}.top{padding:14px 16px}.screen{padding:72px 16px 36px}}
 </style></head>
-<body><div class="glow"></div><div class="page">
-<div class="lang"><button id="ruBtn">RU</button><button id="enBtn">EN</button></div>
-<h1>TV Doctor</h1>
-<div class="sub" data-t="tagline"></div>
+<body><div class="glow"></div>
+<div class="top"><div class="brand"><img src="icon.png" alt="">TV Doctor</div>
+  <div class="lang"><button id="ruBtn">RU</button><button id="enBtn">EN</button></div></div>
 
-<div class="card"><h2><span class="num">1</span><span data-t="prep"></span></h2>
-  <div class="guide">
-    <img id="shot" src="img/1-settings.jpg" alt="">
-    <div><ol class="steps" id="steps"></ol><div class="hint" data-t="prepHint"></div></div>
-  </div>
-</div>
+<section class="screen" id="s-hello">
+  <img class="hero" src="icon.png" alt="">
+  <h1 data-t="hello"></h1>
+  <p class="sub" data-t="helloSub"></p>
+  <button class="big" data-go="wifi" data-t="start"></button>
+</section>
 
-<div class="card"><h2><span class="num">2</span><span data-t="find"></span></h2>
-  <div class="row">
-    <button id="findBtn" data-t="findBtn"></button>
-    <input id="ip" data-tp="ipPh">
-    <span class="tv" id="tv"></span>
-  </div>
-</div>
+<section class="screen" id="s-wifi">
+  <h2 id="wifiTitle"></h2>
+  <p class="sub" data-t="wifiSub"></p>
+  <button class="big" id="wifiBtn" data-t="ready"></button>
+</section>
 
-<div class="card"><h2><span class="num">3</span><span data-t="go"></span></h2>
-  <div class="row">
-    <button class="primary" id="accBtn" data-t="acc"></button>
-    <button id="repBtn" data-t="rep"></button>
-    <button id="resBtn" data-t="res"></button>
-  </div>
-  <div class="status" id="status"></div>
-  <div class="row" style="margin-top:14px">
-    <button class="primary" id="reportBtn" data-t="report" style="display:none"></button>
-    <button id="logBtn" data-t="details" style="display:none"></button>
-  </div>
-  <div class="log" id="log"></div>
-</div>
-</div>
+<section class="screen" id="s-look">
+  <h2 data-t="looking"></h2>
+  <div class="wait"><span class="spin"></span></div>
+</section>
+
+<section class="screen" id="s-debug">
+  <div class="step" id="stepNum"></div>
+  <h2 id="stepText"></h2>
+  <img class="shot" id="stepShot" alt="">
+  <p class="sub" id="stepSub"></p>
+  <button class="big" id="stepBtn" data-t="did"></button>
+  <div class="wait" id="stepWait"><span class="spin"></span><span data-t="waitTv"></span></div>
+  <p class="sub" id="stepLate" data-t="late" style="display:none"></p>
+</section>
+
+<section class="screen" id="s-allow">
+  <h2 data-t="allow"></h2>
+  <img class="shot" src="img/6-allow.jpg" alt="">
+  <p class="sub" data-t="allowSub"></p>
+  <div class="wait"><span class="spin"></span><span data-t="waitOk"></span></div>
+</section>
+
+<section class="screen" id="s-ready">
+  <img class="hero" src="icon.png" alt="">
+  <h2 data-t="found"></h2>
+  <p class="sub" id="tvName"></p>
+  <button class="big" id="accBtn" data-t="acc"></button>
+  <p class="count" data-t="accHint"></p>
+  <div class="side" id="usedBefore"><span data-t="used"></span>
+    <div class="row"><button class="link" id="repBtn" data-t="rep"></button><button class="link" data-go="undo" data-t="res"></button></div></div>
+</section>
+
+<section class="screen" id="s-undo">
+  <h2 data-t="undoQ"></h2>
+  <p class="sub" data-t="undoSub"></p>
+  <button class="big" id="resBtn" data-t="undoBtn"></button>
+  <button class="link" data-go="ready" data-t="cancel" style="margin-top:18px"></button>
+</section>
+
+<section class="screen" id="s-work">
+  <h2 id="workText"></h2>
+  <div class="bar"><div id="barFill"></div></div>
+  <p class="count" data-t="keepOn"></p>
+</section>
+
+<section class="screen" id="s-done">
+  <div class="done">✓</div>
+  <h1 data-t="done"></h1>
+  <p class="sub" id="doneSub"></p>
+  <iframe class="report" id="report" title="report"></iframe>
+</section>
+
+<section class="screen" id="s-error">
+  <h2 id="errTitle"></h2>
+  <p class="sub" id="errSub"></p>
+  <button class="big" id="retryBtn" data-t="retry"></button>
+</section>
 
 <div class="modal" id="modal"><div class="box"><p id="q"></p>
-  <input id="answer"><div class="row"><button class="primary" id="ansBtn" data-t="ok"></button></div></div></div>
+  <input id="answer"><button class="big" id="ansBtn" data-t="ok"></button></div></div>
 
 <script>
 const T = {
- ru: {tagline:"Ускорение и чистка Android TV одной кнопкой. Ничего не удаляется — всё возвращается кнопкой «Вернуть как было».",
-  prep:"Включите отладку на телевизоре", find:"Найдите телевизор", go:"Ускорьте",
-  steps:["Откройте Настройки (шестерёнка) → «Настройки устройства».",
-         "Выберите «Об устройстве».",
-         "Наведите на «Сборка» и нажмите OK 7 раз — появится «Вы стали разработчиком».",
-         "Вернитесь назад и откройте «Для разработчиков».",
-         "Включите «Отладка по USB» (и «Отладка по сети», если такой пункт есть)."],
-  prepHint:"Телевизор и это устройство (компьютер или телефон) должны быть в одной сети Wi-Fi. Когда нажмёте «Найти телевизор», на ТВ появится вопрос «Разрешить отладку?» — отметьте «Всегда разрешать» и нажмите OK. Названия пунктов на разных ТВ немного отличаются.",
-  findBtn:"Найти телевизор", ipPh:"IP (необязательно)", notFound:"не найден", found:"Найден:",
-  acc:"Ускорить", rep:"Повторить после обновления", res:"Вернуть как было", report:"Открыть отчёт",
-  running:"Работаю… не выключайте телевизор", done:"Готово ✓", failed:"Не получилось — подробности ниже",
-  confirmRes:"Вернуть телевизор в состояние до первого запуска программы?", ok:"OK", searching:"Ищу телевизор в сети…",
-  details:"Подробности", hide:"Скрыть подробности"},
- en: {tagline:"Speed up and clean an Android TV with one button. Nothing is deleted — \"Undo\" brings everything back.",
-  prep:"Turn on debugging on the TV", find:"Find the TV", go:"Speed it up",
-  steps:["Open Settings (gear) → \"Device Preferences\".",
-         "Choose \"About\".",
-         "Highlight \"Build\" and press OK 7 times — \"You are now a developer\" appears.",
-         "Go back and open \"Developer options\".",
-         "Turn on \"USB debugging\" (and \"Network debugging\" if your TV has it)."],
-  prepHint:"The TV and this device (computer or phone) must be on the same Wi-Fi. When you press \"Find the TV\", the TV asks \"Allow debugging?\" — tick \"Always allow\" and press OK. Item names differ a little between TVs.",
-  findBtn:"Find the TV", ipPh:"IP (optional)", notFound:"not found", found:"Found:",
-  acc:"Speed up", rep:"Repeat after an update", res:"Undo", report:"Open the report",
-  running:"Working… keep the TV on", done:"Done ✓", failed:"That did not work — details below",
-  confirmRes:"Put the TV back the way it was before the program's first run?", ok:"OK", searching:"Looking for the TV…",
-  details:"Details", hide:"Hide details"}
+ ru: {hello:"Привет!", helloSub:"TV Doctor сделает ваш телевизор быстрее и чище.", start:"Начать",
+  wifiPhone:"Подключите телефон к той же Wi-Fi, что и телевизор", wifiPc:"Подключите компьютер к той же Wi-Fi, что и телевизор",
+  wifiSub:"Телевизор должен быть включён.", ready:"Готово", looking:"Ищу телевизор…",
+  stepOf:"Шаг {n} из 5", did:"Сделал",
+  steps:[["Откройте Настройки, затем «Настройки устройства»", "Настройки — значок шестерёнки на главном экране."],
+         ["Выберите «Об устройстве»", ""],
+         ["Нажмите на «Сборка» 7 раз подряд", "Появится надпись «Вы стали разработчиком»."],
+         ["Вернитесь назад и откройте «Для разработчиков»", "Пункт появился в «Настройках устройства»."],
+         ["Включите «Отладка по USB»", "Если есть «Отладка по сети», включите и её."]],
+  waitTv:"Жду телевизор…", late:"Долго? Проверьте, что телевизор и это устройство в одной Wi-Fi.",
+  allow:"На телевизоре появился вопрос", allowSub:"Отметьте «Всегда разрешать» и нажмите OK.", waitOk:"Жду ваш OK…",
+  found:"Телевизор найден", acc:"Ускорить", accHint:"Займёт 3–4 минуты. Телевизор один раз перезагрузится.",
+  used:"Уже пользовались TV Doctor?", rep:"Повторить после обновления", res:"Вернуть как было",
+  undoQ:"Вернуть телевизор как было?", undoSub:"Всё вернётся к состоянию до первого запуска TV Doctor.", undoBtn:"Вернуть", cancel:"Отмена",
+  keepOn:"Не выключайте телевизор и не закрывайте это окно.", starting:"Начинаю…",
+  done:"Готово", doneUndo:"Телевизор снова такой, как до первого запуска.", doneAcc:"Вот что изменилось:",
+  retry:"Попробовать снова", ok:"OK",
+  err:{notfound:["Не вижу телевизор","Проверьте, что телевизор включён, подключён к той же Wi-Fi и на нём включена «Отладка по USB»."],
+       unauthorized:["Телевизор не разрешил подключение","Когда на телевизоре появится вопрос, отметьте «Всегда разрешать» и нажмите OK."],
+       offline:["Телевизор пропал из сети","Проверьте, что он включён и подключён к той же Wi-Fi."],
+       nottv:["Это не Android TV","TV Doctor работает только с Android TV и Google TV. Ничего не изменено."],
+       other:["Что-то пошло не так","Проверьте, что телевизор включён и в той же Wi-Fi, и попробуйте ещё раз. Всё, что не получилось, программа откатывает сама."]}},
+ en: {hello:"Hello!", helloSub:"TV Doctor will make your TV faster and cleaner.", start:"Start",
+  wifiPhone:"Connect this phone to the same Wi-Fi as the TV", wifiPc:"Connect this computer to the same Wi-Fi as the TV",
+  wifiSub:"The TV must be on.", ready:"Done", looking:"Looking for the TV…",
+  stepOf:"Step {n} of 5", did:"Done",
+  steps:[["Open Settings, then \"Device Preferences\"", "Settings is the gear icon on the home screen."],
+         ["Choose \"About\"", ""],
+         ["Press \"Build\" 7 times in a row", "\"You are now a developer\" appears."],
+         ["Go back and open \"Developer options\"", "It is now in \"Device Preferences\"."],
+         ["Turn on \"USB debugging\"", "If there is \"Network debugging\", turn it on too."]],
+  waitTv:"Waiting for the TV…", late:"Taking long? Check the TV and this device are on the same Wi-Fi.",
+  allow:"The TV is asking a question", allowSub:"Tick \"Always allow\" and press OK.", waitOk:"Waiting for your OK…",
+  found:"TV found", acc:"Speed up", accHint:"Takes 3–4 minutes. The TV restarts once.",
+  used:"Used TV Doctor before?", rep:"Repeat after an update", res:"Undo",
+  undoQ:"Put the TV back the way it was?", undoSub:"Everything returns to how it was before TV Doctor first ran.", undoBtn:"Put it back", cancel:"Cancel",
+  keepOn:"Keep the TV on and this window open.", starting:"Starting…",
+  done:"Done", doneUndo:"The TV is back the way it was before the first run.", doneAcc:"Here is what changed:",
+  retry:"Try again", ok:"OK",
+  err:{notfound:["I can't see the TV","Check the TV is on, on the same Wi-Fi, and \"USB debugging\" is turned on."],
+       unauthorized:["The TV did not allow the connection","When the TV asks, tick \"Always allow\" and press OK."],
+       offline:["The TV dropped off the network","Check it is on and on the same Wi-Fi."],
+       nottv:["This is not an Android TV","TV Doctor works with Android TV and Google TV only. Nothing was changed."],
+       other:["Something went wrong","Check the TV is on and on the same Wi-Fi, then try again. Anything that did not work is rolled back by itself."]}}
 };
 const SHOTS = ["img/1-settings.jpg","img/2-device.jpg","img/3-build.jpg","img/4-devmenu.jpg","img/5-usbdebug.jpg"];
-let lang = (navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en", busyBefore = false, lastJob = "", showLog = false;
+let lang = (navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en";
+let screen = "hello", step = 0, stepSince = 0, s = {}, lastJob = "", wasBusy = false;
 const $ = id => document.getElementById(id);
 const t = k => T[lang][k];
+
+function show(name){
+  screen = name;
+  document.querySelectorAll(".screen").forEach(e => e.classList.toggle("on", e.id === "s-" + name));
+  paint(); window.scrollTo(0, 0);
+}
 
 function paint(){
   document.documentElement.lang = lang;
   $("ruBtn").className = lang === "ru" ? "on" : ""; $("enBtn").className = lang === "en" ? "on" : "";
   document.querySelectorAll("[data-t]").forEach(e => e.textContent = t(e.dataset.t));
-  document.querySelectorAll("[data-tp]").forEach(e => e.placeholder = t(e.dataset.tp));
-  const ol = $("steps"), on = ol.querySelector(".on"), idx = on ? [...ol.children].indexOf(on) : 0;
-  ol.innerHTML = "";
-  t("steps").forEach((s, i) => {
-    const li = document.createElement("li"); li.textContent = s; if (i === idx) li.className = "on";
-    li.onclick = () => { [...ol.children].forEach(x => x.className = ""); li.className = "on"; $("shot").src = SHOTS[i]; };
-    ol.appendChild(li);
-  });
+  $("wifiTitle").textContent = t(s.phone ? "wifiPhone" : "wifiPc");
+  const [text, sub] = t("steps")[step];
+  $("stepNum").textContent = t("stepOf").replace("{n}", step + 1);
+  $("stepText").textContent = text; $("stepSub").textContent = sub;
+  if (!$("stepShot").src.endsWith(SHOTS[step])) $("stepShot").src = SHOTS[step];
+  const last = step === SHOTS.length - 1;   // the last step the program checks by itself: no button
+  $("stepBtn").style.display = last ? "none" : ""; $("stepWait").style.display = last ? "" : "none";
+  $("stepLate").style.display = last && Date.now() - stepSince > 60000 ? "" : "none";
+  if (s.tv) $("tvName").textContent = `${s.tv.name} · Android ${s.tv.android}`;
+  $("usedBefore").style.display = s.tv && s.tv.ready ? "" : "none";
+  $("workText").textContent = s.stage ? s.stage.text : t("starting");
+  $("barFill").style.width = s.stage ? Math.max(4, 100 * s.stage.n / s.stage.total) + "%" : "4%";
+  $("doneSub").textContent = t(lastJob === "restore" ? "doneUndo" : "doneAcc");
+  $("report").style.display = lastJob === "restore" ? "none" : "";
+  const [et, es] = t("err")[s.error] || t("err").other; $("errTitle").textContent = et; $("errSub").textContent = es;
 }
 
 async function post(path, body){ return (await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})})).json(); }
-function start(job, body){ lastJob = job; post("/api/"+job, body); }
+async function setLang(body){ const r = await post("/api/lang", body); if (r.lang !== lang) { lang = r.lang; paint(); } }
+function look(){ post("/api/watch"); show("look"); }
+function run(job){ lastJob = job; s.stage = null; post("/api/" + job); show("work"); }
 
-async function setLang(body){ const r = await post("/api/lang", body); if (r.lang !== lang) { lang = r.lang; paint(); tick(); } }
+document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => show(b.dataset.go));
 $("ruBtn").onclick = () => setLang({choose: "ru"});
 $("enBtn").onclick = () => setLang({choose: "en"});
-$("findBtn").onclick = () => start("find", {host: $("ip").value.trim()});
-$("accBtn").onclick = () => start("accelerate");
-$("repBtn").onclick = () => start("repeat");
-$("resBtn").onclick = () => { if (confirm(t("confirmRes"))) start("restore"); };
-$("reportBtn").onclick = () => window.open("/report", "_blank");
-$("logBtn").onclick = () => { showLog = !showLog; $("log").style.display = showLog ? "block" : "none";
-  $("logBtn").textContent = t(showLog ? "hide" : "details"); };
+$("wifiBtn").onclick = look;
+$("stepBtn").onclick = () => { step++; stepSince = Date.now(); paint(); window.scrollTo(0, 0); };
+$("accBtn").onclick = () => run("accelerate");
+$("repBtn").onclick = () => run("repeat");
+$("resBtn").onclick = () => run("restore");
+$("retryBtn").onclick = () => (lastJob && lastJob !== "find") ? run(lastJob) : look();
 $("ansBtn").onclick = () => { post("/api/answer", {text: $("answer").value}); $("modal").style.display = "none"; };
 
 async function tick(){
-  let s;
   try { s = await (await fetch("/api/state")).json(); } catch(e) { return; }
-  if (s.lang !== lang) { lang = s.lang; paint(); }
-  $("tv").innerHTML = s.tv ? `${t("found")} <b>${s.tv.name}</b> · Android ${s.tv.android}` : "";
-  ["findBtn","accBtn","repBtn","resBtn"].forEach(id => $(id).disabled = s.busy);
-  $("reportBtn").style.display = s.report && !s.busy ? "" : "none";
-  const st = $("status"), log = $("log");
-  // While working, show only the step being done: the last line that names one ("…").
-  const step = [...s.log].reverse().find(l => l.trim().endsWith("…"));
-  if (s.busy) { st.className = "status"; st.innerHTML = `<span class="spin"></span>${lastJob==="find" ? t("searching") : t("running")}`
-      + (step && lastJob !== "find" ? `<div class="hint">${step.trim()}</div>` : ""); }
-  else if (s.result && busyBefore) { st.className = "status " + (s.result==="ok" ? "ok" : "bad"); st.textContent = s.result==="ok" ? t("done") : t("failed"); }
-  $("logBtn").style.display = s.log.length && lastJob !== "find" ? "" : "none";
-  if (s.log.length) { const end = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
-    log.textContent = s.log.join("\n"); if (end) log.scrollTop = log.scrollHeight; }
+  lang = s.lang;
+  if (s.busy) { lastJob = s.job; wasBusy = true; if (screen !== "work") show("work"); }
+  else if (wasBusy) {   // a job just ended
+    wasBusy = false;
+    if (s.result === "ok") { if (lastJob !== "restore") $("report").src = "/report?" + Date.now(); show("done"); }
+    else show("error");
+  }
+  else if (s.link === "found" && ["look","debug","allow"].includes(screen)) show("ready");
+  else if (s.link === "unauthorized" && ["look","debug"].includes(screen)) show("allow");
+  else if (s.link === "searching" && s.looks > 0 && screen === "look") { step = 0; stepSince = Date.now(); show("debug"); }
+  else if (s.link === "searching" && screen === "allow") show("debug");
   if (s.question && $("modal").style.display !== "grid") { $("q").textContent = s.question; $("answer").value = ""; $("modal").style.display = "grid"; }
-  busyBefore = busyBefore || s.busy;
+  paint();
 }
-paint(); setLang({system: navigator.language || ""}).then(() => { tick(); setInterval(tick, 1000); });
+show("hello");
+setLang({system: navigator.language || ""}).then(() => { tick(); setInterval(tick, 1000); });
 </script></body></html>

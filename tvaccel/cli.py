@@ -69,6 +69,16 @@ def cmd_info(session: Session) -> int:
     return 0
 
 
+# The window shows a progress bar: it sets STAGE to receive (step, of, words for the person).
+STAGE = None
+STEPS = 9
+
+
+def stage(n: int, total: int, ru: str, en: str) -> None:
+    if STAGE:
+        STAGE(n, total, tr(ru, en))
+
+
 def warn(text: str) -> None:
     print(tr("  ВНИМАНИЕ: ", "  WARNING: ") + text)
 
@@ -83,6 +93,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
         print_info(session.info)
         print(tr("Это не Android TV. Ничего не изменено.", "This is not an Android TV. Nothing was changed."))
         return 1
+    stage(1, STEPS, "Запоминаю, как всё настроено сейчас", "Saving how everything is set up now")
     first = not session.has_original()
     if first:
         report.save_baseline(session, report.metrics(session.dev))  # the real "before", untouched
@@ -95,6 +106,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
         print(tr("  Это первый запуск — исходное состояние сохранено для «Вернуть как было».",
                  "  First run — the original state is saved for \"Undo\"."))
 
+    stage(2, STEPS, "Убираю лишние приложения и рекламу", "Removing junk apps and ads")
     print(tr("  Чистка…", "  Cleanup…"))
     c = cleanup.run(session)
     print(tr("  Список: ", "  List: ") + c["source"])
@@ -122,6 +134,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
         print(tr(f"  Ограничение фоновых процессов: не применялось (память {gb} ГБ > {limit} ГБ)",
                  f"  Background process limit: not applied ({gb} GB RAM > {limit} GB)"))
 
+    stage(3, STEPS, "Проверяю Wi-Fi", "Checking Wi-Fi")
     print("  Wi-Fi…")
     w = wifi.run(session, ask=ASK)
     c = w["connection"]
@@ -147,6 +160,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
     for text in w["warnings"]:
         warn(text)
 
+    stage(4, STEPS, "Включаю блокировку рекламы", "Turning on ad blocking")
     print(tr("  Блокировка рекламы…", "  Ad blocking…"))
     d = dns.run(session)
     if d["enabled"]:
@@ -158,6 +172,8 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
     for text in d["warnings"]:
         warn(text)
 
+    stage(5, STEPS, "Ставлю новое меню. Телевизор один раз перезагрузится",
+          "Installing the new menu. The TV will restart once")
     try:
         menu = launcher.install_menu(session)
     except launcher.MenuError as e:
@@ -169,6 +185,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
     for pkg in menu["disabled"]:
         print(tr("  Старый домашний экран отключён: ", "  Old home screen turned off: ") + pkg)
 
+    stage(6, STEPS, "Настраиваю кнопки пульта", "Setting up the remote keys")
     print(tr("  Кнопки пульта…", "  Remote keys…"))
     k = remote.run(session)
     print(tr("  Кнопка Netflix открывает: ", "  The Netflix key opens: ") + k["netflix"])
@@ -178,6 +195,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
     for text in k["warnings"]:
         warn(text)
 
+    stage(7, STEPS, "Включаю заставку-часы", "Turning on the clock screensaver")
     sv = screensaver.run(session)
     what = tr("заставка-часы", "clock screensaver") if sv["clock"] else tr("заставка", "screensaver")
     print(tr(f"  Экран: {what} через {sv['screensaver_min']} мин без нажатий, сон через {sv['sleep_min']} мин "
@@ -186,10 +204,12 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
              "(video is not interrupted)"))
     done.append(tr(f"Заставка-часы и сон через {sv['sleep_min']} мин", f"Clock screensaver, sleep after {sv['sleep_min']} min"))
 
+    stage(8, STEPS, "Проверяю безопасность", "Checking security")
     sec = security.run(session.dev)
     print_security(sec)
     if sec.get("ioc_families") and not sec["malware"]:
         done.append(tr("Вирусов не найдено", "No malware found"))
+    stage(9, STEPS, "Готовлю отчёт", "Making the report")
     out = report.write(session, report.load_baseline(session), report.metrics(session.dev), done,
                        open_it=OPEN_REPORT)
     print(tr("  Отчёт «до/после»: ", "  Before/after report: ") + out)
@@ -202,6 +222,7 @@ def cmd_repeat(session: Session) -> int:
                  "  The program has not run on this TV yet — press \"Speed up\" first."))
         return 1
     print_info(session.info)
+    stage(0, STEPS, "Проверяю, что вернулось после обновления", "Checking what came back after the update")
     print(tr("  Проверяю, что вернулось после обновления…", "  Checking what came back after the update…"))
     before = repeat.check(session)
     repeat.print_check(before)
@@ -224,6 +245,7 @@ def cmd_restore(session: Session) -> int:
 
 
 def _restore(session: Session) -> int:
+    stage(1, 2, "Возвращаю всё как было", "Putting everything back")
     result = session.restore()
     for line in result["settings"]:
         print(tr("  настройка возвращена: ", "  setting restored: ") + line)
@@ -239,6 +261,7 @@ def _restore(session: Session) -> int:
         print(tr("  Перезапускаю Wi-Fi, чтобы вернулся старый регион…",
                  "  Restarting Wi-Fi so the old region applies…"))
         session.dev = wifi.restart_wifi(session)
+    stage(2, 2, "Проверяю, что всё вернулось", "Checking everything is back")
     left = session.verify_restored()
     for d in left:
         print(tr("  НЕ СОВПАДАЕТ: ", "  DOES NOT MATCH: ") + d)

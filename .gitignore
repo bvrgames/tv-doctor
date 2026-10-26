@@ -13,3 +13,4 @@ phone/app/src/main/python/tvaccel
 phone/.gradle/
 phone/build/
 phone/app/build/
+.playwright-mcp/
