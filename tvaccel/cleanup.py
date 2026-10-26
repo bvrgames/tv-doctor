@@ -100,6 +100,7 @@ def valid_bundle(data) -> bool:
 _fresh: Optional[Dict[str, dict]] = None
 _checked = threading.Event()
 _checking = False
+_failed = False
 
 
 def start_update() -> None:
@@ -110,13 +111,18 @@ def start_update() -> None:
     _checking = True
 
     def check():
-        global _fresh
+        global _fresh, _failed
         try:
-            data = json.loads(net.fetch(net.LISTS_URLS).decode("utf-8"))
-            if valid_bundle(data):
+            raw = net.fetch(net.LISTS_URLS)
+        except Exception:  # no answer: the built-in lists
+            _failed = True
+            raw = None
+        try:
+            data = json.loads(raw.decode("utf-8")) if raw else None
+            if valid_bundle(data):  # broken: ignored, the built-in lists
                 _fresh = data["lists"]
-        except Exception:
-            pass  # no answer or broken: the built-in lists
+        except ValueError:
+            pass
         finally:
             _checked.set()
 
@@ -127,6 +133,9 @@ def all_lists() -> Dict[str, dict]:
     """The built-in lists, with fresh ones from the repository over them when they came."""
     if _checking:
         _checked.wait(12)  # the check itself gives up sooner
+    if _checking and _failed:
+        net.skip(tr("Свежие списки приложений не скачались — использованы встроенные в программу.",
+                    "Fresh app lists did not download — the ones built into the program were used."))
     lists = builtin_lists()
     if _fresh:
         lists.update(_fresh)

@@ -31,8 +31,13 @@ def find_adb() -> str:
             return c
     try:
         return adbget.download()
-    except Exception as e:
-        raise AdbError(tr("adb не найден и не скачался: ", "adb not found and could not be downloaded: ") + str(e))
+    except Exception:
+        raise AdbError(tr("Чтобы говорить с телевизором, программе нужна adb — её один раз скачивают с сайта Google, "
+                          "но скачать не удалось (нет интернета или сайт не открывается). Подключитесь к интернету "
+                          "и запустите снова.",
+                          "To talk to the TV the program needs adb, downloaded once from Google's site, but the "
+                          "download failed (no internet, or the site does not open). Connect to the internet and "
+                          "run again."))
 
 
 # On an Android phone there is no adb program: the phone app's Java side (AdbBridge, built on

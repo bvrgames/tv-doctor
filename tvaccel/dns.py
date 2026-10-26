@@ -10,7 +10,7 @@ import random
 import re
 import time
 
-from . import adb
+from . import adb, net
 from .backup import Session
 from .i18n import tr
 
@@ -24,7 +24,10 @@ BLOCKED_ADDRESSES = ("0.0.0.0", "127.0.0.1", "::")
 
 def resolve(dev: adb.Device, host: str) -> str:
     """The address the TV resolves host to, or '' if it can't."""
-    out = dev.shell(f"ping -c1 -W3 {host} 2>&1 | head -1", timeout=20)
+    try:
+        out = dev.shell(f"ping -c1 -W2 {host} 2>&1 | head -1", timeout=10)
+    except adb.AdbError:  # the lookup itself hung: no answer
+        return ""
     m = re.search(r"\(([0-9a-f.:]+)\)", out)
     return m.group(1) if m else ""
 
@@ -51,13 +54,21 @@ def run(session: Session, log=print) -> dict:
                                      f"A custom Private DNS is already set ({old_host}) — left as is."))
         return report
 
+    # No internet on the TV at all: nothing to check AdGuard with, and nothing to block.
+    if not any(resolve(dev, h) for h in (FRESH_PROBE.format(random.randrange(10**9)), "ya.ru")):
+        text = tr("У телевизора сейчас нет интернета — блокировка рекламы (AdGuard DNS) не включена.",
+                  "The TV has no internet right now — ad blocking (AdGuard DNS) was not turned on.")
+        report["warnings"].append(text)
+        net.skip(text)
+        return report
+
     session.require_backup()
     session.ensure_setting("global", "private_dns_specifier", ADGUARD)
     session.ensure_setting("global", "private_dns_mode", "hostname")
 
     ok = False
-    for _ in range(6):
-        time.sleep(5)
+    for _ in range(5):
+        time.sleep(3)
         state = private_dns_state(dev)
         fresh = FRESH_PROBE.format(random.randrange(10**9))
         if state["in_use"] and state["server"] == ADGUARD and \

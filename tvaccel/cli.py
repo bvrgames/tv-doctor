@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import cleanup, discover, dns, i18n, launcher, remote, repeat, report, screensaver, security, wifi
+from . import cleanup, discover, dns, i18n, launcher, net, remote, repeat, report, screensaver, security, wifi
 from .adb import AdbError
 from .backup import Session
 from .device import DeviceInfo, detect
@@ -93,6 +93,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
         print_info(session.info)
         print(tr("Это не Android TV. Ничего не изменено.", "This is not an Android TV. Nothing was changed."))
         return 1
+    net.SKIPPED.clear()
     stage(1, STEPS, "Запоминаю, как всё настроено сейчас", "Saving how everything is set up now")
     first = not session.has_original()
     if first:
@@ -154,7 +155,7 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
                  f"  Wi-Fi region: {old.upper()} → {new}, 5 GHz networks are now visible (channels {chans}). "
                  "You can join them in Wi-Fi settings."))
         done.append(tr(f"Wi-Fi 5 ГГц включён (регион {new})", f"5 GHz Wi-Fi on (region {new})"))
-    elif w.get("region"):
+    elif w.get("region") and w.get("country"):  # no country: the check was skipped, see the report
         print(tr(f"  Регион Wi-Fi: {w['region'].upper()}, менять не нужно",
                  f"  Wi-Fi region: {w['region'].upper()}, no change needed"))
     for text in w["warnings"]:
@@ -210,8 +211,12 @@ def _accelerate(session: Session, show_info: bool = True) -> int:
     if sec.get("ioc_families") and not sec["malware"]:
         done.append(tr("Вирусов не найдено", "No malware found"))
     stage(9, STEPS, "Готовлю отчёт", "Making the report")
+    if net.SKIPPED:
+        print(tr("  Пропущено без интернета:", "  Skipped without the internet:"))
+        for text in net.SKIPPED:
+            print(f"    - {text}")
     out = report.write(session, report.load_baseline(session), report.metrics(session.dev), done,
-                       open_it=OPEN_REPORT)
+                       open_it=OPEN_REPORT, skipped=list(net.SKIPPED))
     print(tr("  Отчёт «до/после»: ", "  Before/after report: ") + out)
     return 0
 

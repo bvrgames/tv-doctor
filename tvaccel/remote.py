@@ -15,10 +15,9 @@ import os
 import re
 import shlex
 import time
-import urllib.request
 from typing import Optional
 
-from . import adb
+from . import adb, net
 from .backup import Session, data_root
 from .launcher import MENU_ACTIVITY, MENU_PACKAGE
 from .keepawake import nudge
@@ -27,7 +26,6 @@ from .i18n import tr
 NETFLIX = "com.netflix.ninja"
 PRIME_VIDEO = "com.amazon.amazonvideo.livingroom"
 RUSTV = "com.bvrgames.rustv"
-RUSTV_RELEASE = "https://github.com/bvrgames/BVR_TV/releases/download/tv/"
 KEY_SERVICE = f"{MENU_PACKAGE}/.KeyWatchService"
 
 
@@ -44,20 +42,16 @@ def tv_language(dev: adb.Device) -> str:
     return (dev.getprop("persist.sys.locale") or dev.getprop("ro.product.locale") or "").split("-")[0].lower()
 
 
-def _fetch(url: str, timeout: float = 120) -> bytes:
-    with urllib.request.urlopen(url, timeout=timeout) as r:
-        return r.read()
-
-
 def install_rustv(session: Session, log=print) -> str:
     """Returns what happened, for the report."""
     dev = session.dev
-    latest, sha = _fetch(RUSTV_RELEASE + "tv-version.txt", 30).decode().split()[:2]
+    latest, sha = net.fetch([u + "tv-version.txt" for u in net.RUSTV_URLS if u]).decode().split()[:2]
     have = version_code(dev, RUSTV)
     if have is not None and have >= int(latest):
         return tr(f"rus tv уже последней версии ({have})", f"rus tv is up to date ({have})")
     log(tr("  Скачиваю rus tv…", "  Downloading rus tv…"))
-    apk = _fetch(RUSTV_RELEASE + "rus-tv.apk")
+    # Big: allowed longer while it keeps coming; a 5 s stall still ends it.
+    apk = net.fetch([u + "rus-tv.apk" for u in net.RUSTV_URLS if u], limit=90)
     if hashlib.sha256(apk).hexdigest() != sha.lower():
         raise adb.AdbError(tr("rus tv: контрольная сумма скачанного файла не совпала, не устанавливаю",
                               "rus tv: the download's checksum did not match, not installing"))
@@ -87,7 +81,12 @@ def run(session: Session, log=print) -> dict:
     if russian:
         try:
             report["rustv"] = install_rustv(session, log=log)
-        except Exception as e:  # no internet, GitHub down: the rest still applies
+        except net.NetError:  # no internet, GitHub does not open: the rest still applies
+            text = tr("rus tv не скачался (нет интернета или GitHub не открывается) — установка пропущена.",
+                      "rus tv did not download (no internet, or GitHub does not open) — not installed.")
+            report["warnings"].append(text)
+            net.skip(text)
+        except Exception as e:
             report["warnings"].append(tr("rus tv не установлен", "rus tv not installed") + f": {e}")
 
     # Prime Video: only while Prime Video itself is off or missing.

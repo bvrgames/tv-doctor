@@ -1,7 +1,7 @@
 """Get adb when the computer has none: Google's platform-tools, downloaded on first use.
 
 adb is not shipped with the program (Google's own distribution terms); it is fetched from
-dl.google.com into ~/.tv-acceleration/platform-tools.
+dl.google.com (or net.ADB_MIRROR) into ~/.tv-acceleration/platform-tools.
 """
 from __future__ import annotations
 
@@ -9,12 +9,11 @@ import io
 import os
 import platform
 import stat
-import urllib.request
 import zipfile
 
+from . import net
 from .backup import data_root
 
-URL = "https://dl.google.com/android/repository/platform-tools-latest-{}.zip"
 
 
 def local_adb() -> str:
@@ -28,8 +27,8 @@ def download(log=print) -> str:
         raise RuntimeError(f"no platform-tools for {platform.system()}")
     from .i18n import tr
     log(tr("  Скачиваю adb с сайта Google (один раз)…", "  Downloading adb from Google (once)…"))
-    with urllib.request.urlopen(URL.format(system), timeout=300) as r:
-        data = r.read()
+    # About 7 MB: allowed longer while it keeps coming; a 5 s stall ends it, then the backup address.
+    data = net.fetch([u + f"platform-tools-latest-{system}.zip" for u in net.ADB_URLS if u], limit=180)
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         z.extractall(data_root())
     path = local_adb()

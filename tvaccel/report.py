@@ -111,7 +111,7 @@ def _num(v: Optional[int], unit: str = "") -> str:
     return "—" if v is None else f"{v}{unit}"
 
 
-def render(info, before: dict, after: dict, done: list) -> str:
+def render(info, before: dict, after: dict, done: list, skipped: Optional[list] = None) -> str:
     ours = sorted(set(after["disabled"]) - set(before["disabled"]))
     already = len(before["disabled"])
     groups = {k: [] for k, _t, _w in GROUPS}
@@ -134,6 +134,11 @@ def render(info, before: dict, after: dict, done: list) -> str:
             items = "".join(f"<li>{html.escape(tr(*NAMES[p]) if p in NAMES else p)}</li>" for p in groups[key])
             cols.append(f'<div class="group"><h3>{tr(*title)} <span>{len(groups[key])}</span></h3><ul>{items}</ul></div>')
     chips = "".join(f'<span class="chip">✓ {html.escape(d)}</span>' for d in done)
+    skips = ""
+    if skipped:
+        items = "".join(f"<li>{html.escape(t)}</li>" for t in skipped)
+        skips = (f'<div class="skipped"><h3>{tr("Пропущено без интернета", "Skipped without the internet")}</h3>'
+                 f'<ul>{items}</ul><p>{tr("Всё остальное сделано. Это можно доделать позже: нажмите «Ускорить» ещё раз, когда интернет будет.", "Everything else is done. To finish this later, press “Speed up” again when the internet is there.")}</p></div>')
     device = html.escape(f"{info.manufacturer} {info.model}")
     mb = tr(" МБ", " MB")
     taken = html.escape(before["taken_at"])
@@ -167,6 +172,10 @@ h1{{font-size:46px;font-weight:700;letter-spacing:-.02em;margin:10px 0 6px}}
 .group li:first-child{{border-top:0}}
 .chips{{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}}
 .chip{{background:rgba(255,255,255,.08);border-radius:999px;padding:8px 14px;font-size:14px;opacity:.85}}
+.skipped{{margin-top:26px;background:rgba(255,190,90,.08);border:1px solid rgba(255,190,90,.25);border-radius:20px;padding:20px 22px}}
+.skipped h3{{font-size:16px;font-weight:600;margin-bottom:10px;color:#ffd08a}}
+.skipped li{{list-style:none;font-size:15px;opacity:.85;padding:5px 0}}
+.skipped p{{font-size:14px;opacity:.6;margin-top:8px}}
 .foot{{margin-top:30px;font-size:13px;opacity:.45;line-height:1.6}}
 @media (max-width:760px){{.stats{{grid-template-columns:1fr}}h1{{font-size:34px}}.page{{padding:32px 16px}}}}
 </style></head><body><div class="glow"></div><div class="page">
@@ -181,14 +190,16 @@ h1{{font-size:46px;font-weight:700;letter-spacing:-.02em;margin:10px 0 6px}}
 </div>
 <div class="groups">{"".join(cols)}</div>
 <div class="chips">{chips}</div>
+{skips}
 <div class="foot">{foot}</div>
 </div></body></html>"""
 
 
-def write(session: Session, before: dict, after: dict, done: list, open_it: bool = True) -> str:
+def write(session: Session, before: dict, after: dict, done: list, open_it: bool = True,
+          skipped: Optional[list] = None) -> str:
     path = os.path.join(session.dir, "report.html")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(render(session.info, before, after, done))
+        f.write(render(session.info, before, after, done, skipped))
     if open_it:
         try:
             webbrowser.open(pathlib.Path(path).resolve().as_uri())  # file:///C:/... on Windows too

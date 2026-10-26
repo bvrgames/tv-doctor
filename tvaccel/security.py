@@ -17,15 +17,14 @@ import os
 import re
 import shlex
 import time
-import urllib.request
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Dict, List, Optional, Set
 
-from . import adb
+from . import adb, net
 from .backup import data_root
 from .i18n import tr
 from .launcher import MENU_PACKAGE
 
-IOC_REPO = "DoctorWebLtd/malware-iocs"
 IOC_CACHE_HOURS = 24
 # Malware also replaces genuine files; there only the hash can tell, not the path.
 NORMAL_SYSTEM_PLACES = ("/system/lib", "/system/app/", "/system/priv-app/", "/system/framework/", "/vendor/")
@@ -66,42 +65,54 @@ RISKY = {
 
 
 # ---- known malware -------------------------------------------------------------
-def _fetch(url: str, timeout: float = 30) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "tv-doctor"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", "replace")
+IOC_BUDGET_S = 12  # the whole download, all files at once
 
 
-def malware_indicators(log=print) -> Optional[dict]:
-    """{'sha1': set, 'packages': set, 'paths': set, 'families': int} from Doctor Web, cached."""
-    cache = os.path.join(data_root(), "cache", "malware-iocs.json")
-    if os.path.exists(cache) and time.time() - os.path.getmtime(cache) < IOC_CACHE_HOURS * 3600:
-        with open(cache, encoding="utf-8") as f:
-            d = json.load(f)
-        return {k: set(v) if isinstance(v, list) else v for k, v in d.items()}
-    try:
-        folders = [e["name"] for e in json.loads(_fetch(f"https://api.github.com/repos/{IOC_REPO}/contents"))
-                   if e.get("type") == "dir" and e["name"].lower().startswith("android")]
-    except Exception:
-        return None
+def _download_indicators() -> dict:
+    """All of Dr.Web's Android indicators, or NetError: a partial list would let the report say
+    "no malware found" without having looked for some of it."""
+    deadline = time.time() + IOC_BUDGET_S
+    folders = [e["name"] for e in json.loads(net.fetch([net.IOC_FOLDERS_URL], limit=6))
+               if e.get("type") == "dir" and e["name"].lower().startswith("android")]
+    if not folders:
+        raise net.NetError("no indicator folders")
+    pool = ThreadPoolExecutor(max_workers=8)
+    jobs = {pool.submit(net.fetch, [u.format(name) for u in net.IOC_FILE_URLS], 6): name for name in folders}
+    finished, late = wait(jobs, timeout=max(1.0, deadline - time.time()))
+    pool.shutdown(wait=False)
+    if late or any(j.exception() for j in finished):
+        raise net.NetError("some indicator files did not download")
     sha1, packages, paths = set(), set(), set()
-    for name in folders:
-        try:
-            text = _fetch(f"https://raw.githubusercontent.com/{IOC_REPO}/master/{name}/README.adoc")
-        except Exception:
-            try:
-                text = _fetch(f"https://raw.githubusercontent.com/{IOC_REPO}/main/{name}/README.adoc")
-            except Exception:
-                continue
+    for j in finished:
+        text = j.result().decode("utf-8", "replace")
         samples = re.split(r"(?im)^==\s*network indicators", text)[0]  # skip the domain lists
         sha1 |= {h.lower() for h in re.findall(r"\b[0-9a-fA-F]{40}\b", samples)}
         packages |= set(re.findall(r"\b([a-z][a-z0-9_]*(?:\.[a-z0-9_]+){2,})\s*\(apk\)", samples))
         packages |= set(re.findall(r"variants\s*\(([a-z][a-z0-9_]*(?:\.[a-z0-9_]+){2,})\)", samples))
         paths |= set(re.findall(r"(/(?:system|data|vendor)/[\w./-]+)", samples))
-    d = {"sha1": sorted(sha1), "packages": sorted(packages), "paths": sorted(paths), "families": len(folders)}
-    os.makedirs(os.path.dirname(cache), exist_ok=True)
-    with open(cache, "w", encoding="utf-8") as f:
-        json.dump(d, f)
+    return {"sha1": sorted(sha1), "packages": sorted(packages), "paths": sorted(paths), "families": len(folders)}
+
+
+def malware_indicators(log=print) -> Optional[dict]:
+    """{'sha1': set, 'packages': set, 'paths': set, 'families': int} from Doctor Web, cached for a
+    day; no internet — the last saved copy, however old; none — None."""
+    cache = os.path.join(data_root(), "cache", "malware-iocs.json")
+    have = os.path.exists(cache)
+    if not have or time.time() - os.path.getmtime(cache) >= IOC_CACHE_HOURS * 3600:
+        try:
+            d = _download_indicators()
+            os.makedirs(os.path.dirname(cache), exist_ok=True)
+            with open(cache, "w", encoding="utf-8") as f:
+                json.dump(d, f)
+            have = True
+        except Exception:
+            if not have:
+                return None
+            day = time.strftime("%d.%m.%Y", time.localtime(os.path.getmtime(cache)))
+            net.skip(tr(f"Список известных вирусов не обновился — проверено по сохранённому от {day}.",
+                        f"The known-malware list did not update — checked against the copy saved on {day}."))
+    with open(cache, encoding="utf-8") as f:
+        d = json.load(f)
     return {k: set(v) if isinstance(v, list) else v for k, v in d.items()}
 
 
@@ -161,8 +172,12 @@ def run(dev: adb.Device, log=print) -> dict:
     # 1. Known malware.
     ioc = malware_indicators(log=log)
     if ioc is None:
-        r["notes"].append(tr("Не удалось скачать список известных вирусов (нет интернета?) — эта часть пропущена.",
-                             "Could not download the known-malware list (no internet?) — that part was skipped."))
+        text = tr("Список известных вирусов не скачался (нет интернета или GitHub не открывается) — "
+                  "проверка на известные вирусы пропущена.",
+                  "The known-malware list did not download (no internet, or GitHub does not open) — "
+                  "the check for known malware was skipped.")
+        r["notes"].append(text)
+        net.skip(text)
     else:
         r["ioc_families"] = ioc["families"]
         for p in sorted(ioc["packages"] & set(installed)):

@@ -15,15 +15,13 @@ import platform
 import re
 import subprocess
 import time
-import urllib.request
 from typing import List, Optional, Set
 
-from . import adb
+from . import adb, net
 from .backup import Session
 from .i18n import tr
 
 REGION_KEY = "service_region"
-GEO_URL = "http://ip-api.com/json/?fields=status,country,countryCode,proxy,hosting"
 
 
 def channel(freq: int) -> int:
@@ -132,9 +130,10 @@ def country(session: Session, ask=input, log=print) -> Optional[str]:
         with open(saved_path, encoding="utf-8") as f:
             return json.load(f).get("country")
     try:
-        with urllib.request.urlopen(GEO_URL, timeout=10) as r:
-            geo = json.load(r)
+        geo = json.loads(net.fetch([net.GEO_URL], limit=6))
     except Exception:
+        net.skip(tr("Страну по интернету определить не удалось — проверка региона Wi-Fi (5 ГГц) пропущена.",
+                    "Could not tell the country over the internet — the Wi-Fi region (5 GHz) check was skipped."))
         return None
     if geo.get("status") != "success":
         return None
