@@ -163,6 +163,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"started": _job(lambda: _find(body.get("host")))})
         if path in ("/api/accelerate", "/api/repeat", "/api/restore"):
             return self._json({"started": _job(_command(path.rsplit("/", 1)[1]))})
+        if path == "/api/lang":  # the window's language: the system's on first load, or the RU / EN switch
+            if body.get("choose") in ("ru", "en"):
+                i18n.choose(body["choose"])
+            else:
+                i18n.set_system(str(body.get("system", "")))
+            return self._json({"lang": i18n.lang()})
         if path == "/api/answer":
             with STATE.lock:
                 STATE.answer = str(body.get("text", ""))

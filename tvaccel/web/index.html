@@ -41,9 +41,13 @@ input{font:inherit;font-size:15px;background:rgba(255,255,255,.08);border:1px so
 .modal .box{background:#17141c;border:1px solid var(--line);border-radius:20px;padding:24px;max-width:440px;width:100%}
 .modal p{font-size:17px;line-height:1.45;margin-bottom:16px}
 .modal input{width:100%;margin-bottom:14px}
+.lang{position:absolute;top:24px;right:24px;display:flex;background:rgba(255,255,255,.08);border-radius:10px;padding:3px}
+.lang button{font-size:13px;padding:6px 10px;border-radius:8px;background:none;color:var(--dim)}
+.lang button.on{background:rgba(255,255,255,.16);color:#fff}
 @media (max-width:720px){.guide{grid-template-columns:1fr}h1{font-size:28px}.page{padding:24px 16px 48px}button.primary{width:100%}}
 </style></head>
 <body><div class="glow"></div><div class="page">
+<div class="lang"><button id="ruBtn">RU</button><button id="enBtn">EN</button></div>
 <h1>TV Doctor</h1>
 <div class="sub" data-t="tagline"></div>
 
@@ -110,12 +114,13 @@ const T = {
   details:"Details", hide:"Hide details"}
 };
 const SHOTS = ["img/1-settings.jpg","img/2-device.jpg","img/3-build.jpg","img/4-devmenu.jpg","img/5-usbdebug.jpg"];
-let lang = "ru", busyBefore = false, lastJob = "", showLog = false;
+let lang = (navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en", busyBefore = false, lastJob = "", showLog = false;
 const $ = id => document.getElementById(id);
 const t = k => T[lang][k];
 
 function paint(){
   document.documentElement.lang = lang;
+  $("ruBtn").className = lang === "ru" ? "on" : ""; $("enBtn").className = lang === "en" ? "on" : "";
   document.querySelectorAll("[data-t]").forEach(e => e.textContent = t(e.dataset.t));
   document.querySelectorAll("[data-tp]").forEach(e => e.placeholder = t(e.dataset.tp));
   const ol = $("steps"), on = ol.querySelector(".on"), idx = on ? [...ol.children].indexOf(on) : 0;
@@ -130,6 +135,9 @@ function paint(){
 async function post(path, body){ return (await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})})).json(); }
 function start(job, body){ lastJob = job; post("/api/"+job, body); }
 
+async function setLang(body){ const r = await post("/api/lang", body); if (r.lang !== lang) { lang = r.lang; paint(); tick(); } }
+$("ruBtn").onclick = () => setLang({choose: "ru"});
+$("enBtn").onclick = () => setLang({choose: "en"});
 $("findBtn").onclick = () => start("find", {host: $("ip").value.trim()});
 $("accBtn").onclick = () => start("accelerate");
 $("repBtn").onclick = () => start("repeat");
@@ -158,5 +166,5 @@ async function tick(){
   if (s.question && $("modal").style.display !== "grid") { $("q").textContent = s.question; $("answer").value = ""; $("modal").style.display = "grid"; }
   busyBefore = busyBefore || s.busy;
 }
-paint(); tick(); setInterval(tick, 1000);
+paint(); setLang({system: navigator.language || ""}).then(() => { tick(); setInterval(tick, 1000); });
 </script></body></html>
