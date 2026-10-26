@@ -43,12 +43,16 @@ def _port_open(host: str, port: int, timeout: float) -> bool:
 def _my_addresses() -> List[str]:
     # On the phone the route to the internet may be mobile data; the TV is on the Wi-Fi or the
     # phone's hotspot, so ask the phone for its addresses on local networks.
+    mine = []
     if adb.ON_ANDROID:
-        mine = adb.phone_addresses()
-        if mine:
-            return mine
+        try:
+            mine = adb.phone_addresses()
+        except Exception:  # never let this stop the search: the route-based address still works
+            pass
     me = local_ipv4()
-    return [me] if me else []
+    if me and me not in mine:
+        mine.append(me)
+    return mine
 
 
 def scan_subnet(port: int = ADB_PORT, timeout: float = 1.0) -> List[str]:
