@@ -1,10 +1,12 @@
 """Backup before any change, and one-step rollback to the original state.
 
-Layout (on the computer/phone running the tool, not on the TV):
+Layout (on the computer/phone running the tool):
     ~/.tv-acceleration/<device_id>/
         original.json        first snapshot ever taken, never overwritten
         snapshots/<ts>.json  snapshot taken before every run
         journal.json         every setting/package we touched since the last rollback
+original.json and journal.json are also kept on the TV itself (TV_DIR), so "Undo" works from
+any computer or phone. The TV's original.json wins over a local one.
 
 Rollback returns every touched setting, the enabled/disabled state of every
 package and the home screen to what `original.json` recorded, and uninstalls the
@@ -25,6 +27,8 @@ from .i18n import tr
 
 NAMESPACES = ("global", "secure", "system")
 OUR_PREFIX = "com.bvrgames.tvaccel"  # apps this program installs
+TV_DIR = "/data/local/tmp/tv-doctor"  # shell-writable, survives restarts, apps can't see it
+TV_CHUNK = 3000  # characters per shell command (old adbd: 4 KB per message)
 HOME_QUERY = "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME"
 
 
@@ -45,6 +49,25 @@ def _read_json(path: str, default=None):
         return default
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def _tv_read(dev: Device, name: str):
+    """A JSON file from TV_DIR, or None if it is not there or broken."""
+    try:
+        text = dev.shell(f"cat {TV_DIR}/{name} 2>/dev/null || true", timeout=30)
+        return json.loads(text) if text.strip() else None
+    except (AdbError, ValueError):
+        return None
+
+
+def _tv_write(dev: Device, name: str, data) -> None:
+    """Write a JSON file to TV_DIR in small pieces, then swap it in whole."""
+    text = json.dumps(data, ensure_ascii=True, separators=(",", ":"))  # ASCII: safe in a shell quote
+    tmp = f"{TV_DIR}/{name}.tmp"
+    dev.shell(f"mkdir -p {TV_DIR} && : > {tmp}")
+    for i in range(0, len(text), TV_CHUNK):
+        dev.shell(f"printf %s {shlex.quote(text[i:i + TV_CHUNK])} >> {tmp}")
+    dev.shell(f"mv {tmp} {TV_DIR}/{name}")
 
 
 def take_snapshot(dev: Device, info: DeviceInfo) -> dict:
@@ -69,6 +92,33 @@ class Session:
         self.original_path = os.path.join(self.dir, "original.json")
         self.journal_path = os.path.join(self.dir, "journal.json")
         self._backed_up = False
+        self._sync_with_tv()
+
+    def _sync_with_tv(self) -> None:
+        """The TV's copies come first (they are what the last run on any device left there);
+        the TV gets ours when it has none yet."""
+        tv_orig = _tv_read(self.dev, "original.json")
+        if isinstance(tv_orig, dict) and {"packages", "disabled", "settings"} <= tv_orig.keys():
+            if _read_json(self.original_path) != tv_orig:
+                _write_json(self.original_path, tv_orig)
+        elif self.has_original():
+            self._to_tv("original.json", self.original())
+        tv_j = _tv_read(self.dev, "journal.json")
+        if isinstance(tv_j, dict) and isinstance(tv_j.get("settings"), list):
+            if _read_json(self.journal_path) != tv_j:
+                _write_json(self.journal_path, tv_j)
+        elif os.path.exists(self.journal_path):
+            self._to_tv("journal.json", self.journal())
+
+    def _to_tv(self, name: str, data) -> None:
+        try:
+            _tv_write(self.dev, name, data)
+        except AdbError:
+            pass  # the local copy is still there; next run tries again
+
+    def _write_journal(self, j: dict) -> None:
+        _write_json(self.journal_path, j)
+        self._to_tv("journal.json", j)
 
     # ---- backup -------------------------------------------------------
     def has_original(self) -> bool:
@@ -88,6 +138,7 @@ class Session:
         _write_json(path, snap)
         if not self.has_original():
             _write_json(self.original_path, snap)
+            self._to_tv("original.json", snap)
         self._backed_up = True
         return path
 
@@ -107,7 +158,7 @@ class Session:
         j = self.journal()
         if item not in j[kind]:
             j[kind].append(item)
-            _write_json(self.journal_path, j)
+            self._write_journal(j)
 
     # ---- changes ------------------------------------------------------
     def put_setting(self, namespace: str, key: str, value: Optional[str]) -> None:
@@ -127,14 +178,15 @@ class Session:
 
     def _remember(self, namespace: str, key: str, value: Optional[str]) -> None:
         j = self.journal()
-        j["values"][f"{namespace}/{key}"] = value
-        _write_json(self.journal_path, j)
+        if j["values"].get(f"{namespace}/{key}", "missing") != value:
+            j["values"][f"{namespace}/{key}"] = value
+            self._write_journal(j)
 
     def forget_value(self, namespace: str, key: str) -> None:
         """A setting we tried and put back: not ours to watch any more."""
         j = self.journal()
         if j["values"].pop(f"{namespace}/{key}", "missing") != "missing":
-            _write_json(self.journal_path, j)
+            self._write_journal(j)
 
     def disable_package(self, package: str, allow_protected: bool = False) -> bool:
         """pm disable-user only, never uninstall. Returns False if skipped.
@@ -225,7 +277,7 @@ class Session:
                 report["errors"].append(f"{pkg}: {e}")
 
         if not report["errors"]:
-            _write_json(self.journal_path, {"settings": [], "packages": [], "installed": [], "values": {}})
+            self._write_journal({"settings": [], "packages": [], "installed": [], "values": {}})
         return report
 
     def verify_restored(self) -> List[str]:
