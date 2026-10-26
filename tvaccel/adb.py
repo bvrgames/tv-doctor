@@ -62,8 +62,10 @@ def _run_on_phone(args: List[str], timeout: float) -> str:
             return ""
         if cmd == "shell":
             out = str(bridge.shell(f"{args[1]}; echo {_EXIT}$?", int(timeout * 1000)))
-            body, _, code = out.rpartition(_EXIT)
-            if code.strip() not in ("", "0"):
+            body, found, code = out.rpartition(_EXIT)
+            if not found:  # the answer was cut off: do not take half an answer for a success
+                raise AdbError("the TV's answer was cut off")
+            if code.strip() != "0":
                 raise AdbError(body.strip() or f"exit code {code.strip()}")
             return body
         if cmd == "install":
@@ -123,9 +125,14 @@ def connect(host: str, port: int = 5555) -> str:
 
 
 def wait_online(serial: str, timeout: float = 90) -> bool:
-    """After a dropped connection: reconnect (network serials) until the shell answers."""
+    """Make sure the TV answers; after a dropped connection, reconnect (network serials) until it does."""
     import time
     host, _, port = serial.partition(":")
+    try:  # still connected: keep it (on the phone a reconnect costs a new connection)
+        if Device(serial).shell("echo ok", timeout=10).strip() == "ok":
+            return True
+    except AdbError:
+        pass
     deadline = time.time() + timeout
     tries = 0
     while time.time() < deadline:

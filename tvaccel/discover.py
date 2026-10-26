@@ -40,7 +40,7 @@ def _port_open(host: str, port: int, timeout: float) -> bool:
         return False
 
 
-def scan_subnet(port: int = ADB_PORT, timeout: float = 0.6) -> List[str]:
+def scan_subnet(port: int = ADB_PORT, timeout: float = 1.0) -> List[str]:
     """Hosts in our /24 with the adb port open."""
     me = local_ipv4()
     if not me:
