@@ -3,17 +3,21 @@ app caches, faster animations, and a background-process limit on weak devices.
 
 Model lists: tvaccel/data/cleanyourtv/<model>/debloat.txt, from
 https://github.com/Gathin23/cleanyourtv (MIT, see data/cleanyourtv/LICENSE).
+At start the program also checks for fresher lists in this repository (lists/lists.json, see
+net.LISTS_URLS) for a few seconds; no answer or a broken file — the built-in ones are used.
+The protected list (protected.py) always comes from the program and applies over any list.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+import threading
 import time
 from collections import Counter
 from typing import Dict, List, Optional, Tuple
 
-from . import adb
+from . import adb, net
 from .backup import Session
 from .launcher import NOT_FAVOURITES, _launchable, favourite_apps
 from .protected import is_protected
@@ -45,6 +49,9 @@ COMMON_MIN_LISTS = 15  # a package in this many model lists counts as generic ju
 BRAND_MIN_LISTS = 2    # for an unknown model: in this many lists of the same brand
 
 
+PACKAGE = re.compile(r"^[A-Za-z][\w.]*$")
+
+
 def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
@@ -54,12 +61,15 @@ def parse_list(path: str) -> List[str]:
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.split("#", 1)[0].strip()
-            if line and re.match(r"^[A-Za-z][\w.]*$", line.split()[0]):
+            if line and PACKAGE.match(line.split()[0]):
                 pkgs.append(line.split()[0])
     return pkgs
 
 
-def all_lists() -> Dict[str, dict]:
+MIN_LISTS = 50  # a fresh file with fewer lists than this is cut short, not fresh
+
+
+def builtin_lists() -> Dict[str, dict]:
     """{folder: {"brand": maker from tv.json, "pkgs": [...]}}"""
     lists = {}
     for name in sorted(os.listdir(DATA)):
@@ -72,6 +82,59 @@ def all_lists() -> Dict[str, dict]:
                 brand = ""
             lists[name] = {"brand": brand, "pkgs": parse_list(path)}
     return lists
+
+
+def valid_bundle(data) -> bool:
+    """A downloaded lists file is used only if every list in it is well-formed."""
+    lists = data.get("lists") if isinstance(data, dict) else None
+    if not isinstance(lists, dict) or len(lists) < MIN_LISTS:
+        return False
+    for name, l in lists.items():
+        if not (isinstance(name, str) and isinstance(l, dict) and isinstance(l.get("brand"), str)
+                and isinstance(l.get("pkgs"), list) and l["pkgs"]
+                and all(isinstance(p, str) and PACKAGE.match(p) for p in l["pkgs"])):
+            return False
+    return True
+
+
+_fresh: Optional[Dict[str, dict]] = None
+_checked = threading.Event()
+_checking = False
+
+
+def start_update() -> None:
+    """At program start: look for fresh lists in the background (a few seconds at most)."""
+    global _checking
+    if _checking:
+        return
+    _checking = True
+
+    def check():
+        global _fresh
+        try:
+            data = json.loads(net.fetch(net.LISTS_URLS).decode("utf-8"))
+            if valid_bundle(data):
+                _fresh = data["lists"]
+        except Exception:
+            pass  # no answer or broken: the built-in lists
+        finally:
+            _checked.set()
+
+    threading.Thread(target=check, daemon=True).start()
+
+
+def all_lists() -> Dict[str, dict]:
+    """The built-in lists, with fresh ones from the repository over them when they came."""
+    if _checking:
+        _checked.wait(12)  # the check itself gives up sooner
+    lists = builtin_lists()
+    if _fresh:
+        lists.update(_fresh)
+    return lists
+
+
+def lists_fresh() -> bool:
+    return bool(_fresh)
 
 
 def pick_list(model: str, makers: List[str], android: str, lists: Dict[str, dict]) -> Tuple[str, List[str]]:

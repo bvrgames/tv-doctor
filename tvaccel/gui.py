@@ -19,7 +19,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
 
-from . import adb, cli, discover, i18n
+from . import adb, cleanup, cli, discover, i18n
 from .adb import AdbError
 from .discover import NeedsOk, NotFound
 from .backup import Session
@@ -315,6 +315,7 @@ def serve(port: int = 0):
     this directly and shows the url in its own WebView."""
     cli.ASK, cli.OPEN_REPORT = _ask, False
     cli.STAGE = _stage
+    cleanup.start_update()
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, f"http://127.0.0.1:{server.server_address[1]}/"

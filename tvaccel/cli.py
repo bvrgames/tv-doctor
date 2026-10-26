@@ -277,6 +277,8 @@ def main(argv=None) -> int:
     parser.add_argument("--host", help=tr("IP телевизора (по умолчанию — поиск в сети)",
                                           "TV IP address (default: search the network)"))
     args = parser.parse_args(argv)
+    if args.command in ("accelerate", "repeat"):
+        cleanup.start_update()
     try:
         dev = discover.find_tv(args.host)
         i18n.set_from_tv(dev)
