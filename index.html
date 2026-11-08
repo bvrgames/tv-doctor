@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="assets/logo.png">
+<title>Картинг Клуб Сибай — Неоновая гонка</title>
+<style>
+:root {
+--pink:#ff2bd6; --blue:#29d9ff; --green:#4dff7a; --violet:#a046ff; --gold:#ffd24a;
+--glass: rgba(28,28,32,.58); --glass2: rgba(255,255,255,.08); --stroke: rgba(255,255,255,.14);
+--text: #f5f5f7; --sub: rgba(235,235,245,.6);
+--font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+--round: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+--sl: env(safe-area-inset-left, 0px); --sr: env(safe-area-inset-right, 0px); --sb: env(safe-area-inset-bottom, 0px); --st: env(safe-area-inset-top, 0px);
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+html,body { margin:0; height:100%; overflow:hidden; background:#000; color:var(--text); font-family:var(--font); touch-action:none; -webkit-font-smoothing:antialiased; }
+canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
+button { font-family:inherit; color:inherit; border:none; background:none; cursor:pointer; padding:0; }
+.glass { background:var(--glass); -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); border:0.5px solid var(--stroke); }
+.hidden { display:none !important; }
+.press { transition: transform .12s ease, opacity .12s ease; }
+.press:active { transform: scale(.96); opacity:.85; }
+/* ---------- menu layer ---------- */
+#menuLayer { position:fixed; inset:0; pointer-events:none; }
+#menuLayer > * { pointer-events:auto; }
+#menuLayer::before { content:''; position:absolute; inset:0; pointer-events:none; background: linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.35) 38%, rgba(0,0,0,0) 60%), linear-gradient(0deg, rgba(0,0,0,.5), rgba(0,0,0,0) 30%); }
+.topbar { position:absolute; top:calc(10px + var(--st)); left:calc(16px + var(--sl)); right:calc(16px + var(--sr)); display:flex; align-items:center; gap:10px; }
+.brand { display:flex; align-items:center; gap:10px; }
+.brand img { height:38px; filter: drop-shadow(0 0 8px rgba(160,70,255,.6)); }
+.brand .bt { font-size:13px; line-height:1.15; color:var(--sub); font-weight:600; }
+.brand .bt b { color:var(--text); font-size:15px; display:block; }
+.spacer { flex:1; }
+.pill { height:38px; border-radius:19px; padding:0 14px; display:flex; align-items:center; gap:8px; font-weight:700; font-size:16px; font-family:var(--round); }
+.coin-ic { width:20px; height:20px; border-radius:50%; background: radial-gradient(circle at 35% 30%, #fff3b0, #ffd24a 40%, #d99a00); box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); display:inline-block; flex:none; }
+.iconbtn { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.iconbtn svg { width:20px; height:20px; }
+#home .hero { position:absolute; left:calc(28px + var(--sl)); bottom:calc(86px + var(--sb)); max-width:46vw; }
+.eyebrow { font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--violet); }
+.h1 { font-size:clamp(30px, 6.2vw, 58px); font-weight:800; letter-spacing:-.02em; line-height:1.0; margin:6px 0 10px; }
+.lead { font-size:clamp(13px, 1.9vw, 16px); color:var(--sub); line-height:1.4; margin-bottom:16px; }
+.cta { height:54px; padding:0 34px; border-radius:27px; background:#fff; color:#000; font-size:18px; font-weight:700; display:inline-flex; align-items:center; gap:10px; box-shadow: 0 8px 30px rgba(160,70,255,.45); }
+.cta svg { width:18px; height:18px; }
+.cta.sec { background:var(--glass2); color:#fff; box-shadow:none; border:0.5px solid var(--stroke); }
+.cta.small { height:44px; font-size:16px; padding:0 22px; }
+.tabbar { position:absolute; left:50%; transform:translateX(-50%); bottom:calc(12px + var(--sb)); height:58px; border-radius:29px; display:flex; padding:5px; gap:4px; }
+.tab { min-width:84px; height:48px; border-radius:24px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px; font-weight:600; color:var(--sub); }
+.tab svg { width:20px; height:20px; }
+.tab.on { background:rgba(255,255,255,.14); color:#fff; }
+.panel { position:absolute; left:calc(16px + var(--sl)); top:calc(60px + var(--st)); bottom:calc(80px + var(--sb)); width:min(400px, 46vw); border-radius:24px; padding:16px; display:flex; flex-direction:column; gap:12px; overflow:hidden; }
+.panel h2 { margin:0; font-size:22px; font-weight:800; letter-spacing:-.01em; }
+.panel .scroll { overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px; padding-right:2px; touch-action:pan-y; }
+.row { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:16px; background:rgba(255,255,255,.06); border:0.5px solid transparent; }
+.row.on { border-color: rgba(255,255,255,.5); background:rgba(255,255,255,.12); }
+.sw { width:34px; height:34px; border-radius:10px; flex:none; box-shadow: inset 0 0 0 0.5px rgba(255,255,255,.3); }
+.row .nm { font-weight:700; font-size:15px; }
+.row .rr { font-size:12px; font-weight:600; }
+.row .right { margin-left:auto; font-weight:700; font-size:14px; font-family:var(--round); display:flex; align-items:center; gap:6px; }
+.r0 { color:#c7c7cc; } .r1 { color:#29d9ff; } .r2 { color:#c46bff; } .r3 { color:#ffd24a; }
+.stats { display:flex; flex-direction:column; gap:8px; }
+.stat { display:grid; grid-template-columns: 96px 1fr; align-items:center; gap:10px; font-size:13px; color:var(--sub); font-weight:600; }
+.bar { height:6px; border-radius:3px; background:rgba(255,255,255,.12); overflow:hidden; }
+.bar i { display:block; height:100%; border-radius:3px; background:linear-gradient(90deg, var(--violet), var(--pink)); transition: width .35s ease; }
+.caseCard { border-radius:20px; padding:16px; background: linear-gradient(135deg, rgba(160,70,255,.55), rgba(255,43,214,.35) 60%, rgba(41,217,255,.35)); border:0.5px solid rgba(255,255,255,.25); display:flex; align-items:center; gap:14px; }
+.caseBox { width:64px; height:64px; border-radius:16px; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; font-size:34px; box-shadow: 0 0 24px rgba(255,43,214,.6); flex:none; }
+.caseCard .t { font-weight:800; font-size:17px; } .caseCard .d { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+.buyBtn { margin-left:auto; height:36px; border-radius:18px; padding:0 14px; background:#fff; color:#000; font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; font-family:var(--round); flex:none; }
+.buyBtn.dim { background:rgba(255,255,255,.15); color:#fff; }
+.note { font-size:12px; color:var(--sub); line-height:1.45; }
+/* sheets / modals */
+.modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.35); z-index:20; }
+.sheet { border-radius:28px; padding:22px; width:min(720px, 92vw); max-height:92vh; overflow:auto; }
+.sheet h2 { margin:0 0 4px; font-size:24px; font-weight:800; }
+.modes { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-top:14px; }
+.mode { border-radius:20px; padding:14px; min-height:150px; display:flex; flex-direction:column; gap:6px; text-align:left; background:rgba(255,255,255,.07); border:0.5px solid var(--stroke); position:relative; overflow:hidden; }
+.mode .ic { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:4px; }
+.mode .ic svg { width:22px; height:22px; }
+.mode .t { font-size:17px; font-weight:800; } .mode .d { font-size:12.5px; color:var(--sub); line-height:1.35; }
+.mode .tag { position:absolute; top:12px; right:12px; font-size:11px; font-weight:700; padding:3px 8px; border-radius:10px; background:rgba(255,255,255,.14); }
+.mode.locked { opacity:.55; }
+.seg { display:inline-flex; background:rgba(255,255,255,.08); border-radius:12px; padding:3px; margin-top:14px; }
+.seg button { height:32px; padding:0 16px; border-radius:9px; font-size:14px; font-weight:600; color:var(--sub); }
+.seg button.on { background:rgba(255,255,255,.2); color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+.sheetFoot { display:flex; align-items:center; justify-content:space-between; margin-top:16px; gap:12px; flex-wrap:wrap; }
+.setRow { display:flex; align-items:center; justify-content:space-between; padding:12px 4px; border-bottom:0.5px solid rgba(255,255,255,.1); font-size:16px; font-weight:500; gap:12px; }
+.toggle { width:51px; height:31px; border-radius:16px; background:rgba(120,120,128,.36); position:relative; transition:background .2s; flex:none; }
+.toggle::after { content:''; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.3); transition:transform .2s; }
+.toggle.on { background:#34c759; } .toggle.on::after { transform:translateX(20px); }
+input[type=range] { width:150px; accent-color:#a046ff; }
+/* ---------- HUD ---------- */
+#hud { position:fixed; inset:0; pointer-events:none; }
+.hudTL { position:absolute; left:calc(14px + var(--sl)); top:calc(10px + var(--st)); display:flex; gap:10px; align-items:flex-start; }
+#itemSlot { width:70px; height:70px; border-radius:22px; display:flex; align-items:center; justify-content:center; font-size:36px; transition: box-shadow .2s; }
+#itemSlot.has { box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 22px rgba(160,70,255,.8); }
+#itemSlot.roll { animation: pulse .12s linear infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 2px var(--pink), 0 0 20px var(--pink); } }
+.hudCol { display:flex; flex-direction:column; gap:6px; }
+.hudPill { height:30px; border-radius:15px; padding:0 12px; display:flex; align-items:center; gap:6px; font-family:var(--round); font-weight:700; font-size:15px; font-variant-numeric: tabular-nums; }
+.hudTop { position:absolute; left:50%; transform:translateX(-50%); top:calc(10px + var(--st)); display:flex; gap:8px; align-items:center; pointer-events:auto; }
+.hudTop .hudPill { height:36px; border-radius:18px; font-size:16px; padding:0 14px; }
+#pauseBtn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+#mini { position:absolute; right:calc(12px + var(--sr)); top:calc(10px + var(--st)); width:150px; height:112px; border-radius:20px; }
+#pos { position:absolute; right:calc(18px + var(--sr)); top:calc(128px + var(--st)); font-family:var(--round); font-weight:900; font-size:58px; line-height:1; text-shadow: 0 4px 18px rgba(0,0,0,.5); }
+#pos small { font-size:22px; color:rgba(255,255,255,.7); font-weight:800; }
+#speedo { position:absolute; left:50%; transform:translateX(-50%); bottom:calc(14px + var(--sb)); font-family:var(--round); font-weight:800; font-size:15px; color:rgba(255,255,255,.85); }
+#speedo b { font-size:24px; color:#fff; }
+#msg { position:absolute; left:50%; top:36%; transform:translate(-50%,-50%); font-family:var(--round); font-size:96px; font-weight:900; white-space:nowrap; text-shadow: 0 6px 30px rgba(0,0,0,.45); transition: transform .15s; }
+#toast { position:absolute; left:50%; top:calc(56px + var(--st)); transform:translateX(-50%); height:34px; border-radius:17px; padding:0 16px; display:flex; align-items:center; font-weight:700; font-size:15px; opacity:0; transition:opacity .25s, transform .25s; white-space:nowrap; }
+#toast.on { opacity:1; transform:translateX(-50%) translateY(4px); }
+#driftMeter { position:absolute; left:50%; bottom:calc(50px + var(--sb)); transform:translateX(-50%); width:120px; height:6px; border-radius:3px; background:rgba(255,255,255,.15); overflow:hidden; opacity:0; transition:opacity .2s; }
+#driftMeter i { display:block; height:100%; width:0; border-radius:3px; }
+/* ---------- touch controls ---------- */
+#ctrl { position:fixed; inset:0; pointer-events:none; }
+#ctrl .cb { pointer-events:auto; position:absolute; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:10.5px; font-weight:700; color:rgba(255,255,255,.9); letter-spacing:.02em; transition: transform .08s, background .08s; }
+#ctrl .cb svg { width:30px; height:30px; }
+#ctrl .cb.down { transform:scale(.92); background:rgba(255,255,255,.28); }
+#bL { left:calc(18px + var(--sl)); bottom:calc(22px + var(--sb)); width:92px; height:92px; }
+#bR { left:calc(122px + var(--sl)); bottom:calc(22px + var(--sb)); width:92px; height:92px; }
+#bGas { right:calc(18px + var(--sr)); bottom:calc(22px + var(--sb)); width:100px; height:100px; background:rgba(52,199,89,.32) !important; }
+#bBrake { right:calc(130px + var(--sr)); bottom:calc(18px + var(--sb)); width:76px; height:76px; background:rgba(255,69,58,.28) !important; }
+#bDrift { right:calc(36px + var(--sr)); bottom:calc(134px + var(--sb)); width:80px; height:80px; background:rgba(255,43,214,.3) !important; }
+#bItem { right:calc(134px + var(--sr)); bottom:calc(108px + var(--sb)); width:66px; height:66px; }
+/* results, case */
+.resPlace { font-family:var(--round); font-size:64px; font-weight:900; line-height:1; }
+.resTable { width:100%; border-collapse:collapse; margin-top:12px; font-size:15px; }
+.resTable td { padding:7px 6px; border-bottom:0.5px solid rgba(255,255,255,.1); }
+.resTable td:last-child { text-align:right; font-family:var(--round); font-variant-numeric:tabular-nums; }
+.resTable tr.me td { color:var(--green); font-weight:800; }
+.reward { display:flex; align-items:center; gap:8px; font-family:var(--round); font-weight:800; font-size:22px; }
+#reel { position:relative; height:110px; overflow:hidden; border-radius:18px; background:rgba(0,0,0,.35); margin-top:14px; }
+#reelStrip { position:absolute; top:10px; left:0; display:flex; gap:10px; will-change:transform; }
+.rc { width:120px; height:90px; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:rgba(255,255,255,.07); font-size:12px; font-weight:700; text-align:center; padding:4px; flex:none; border-bottom:3px solid; }
+.rc .sw { width:44px; height:28px; border-radius:8px; }
+#reel::after { content:''; position:absolute; left:50%; top:0; bottom:0; width:2px; background:#fff; box-shadow:0 0 12px #fff; transform:translateX(-1px); }
+#caseResult { text-align:center; margin-top:14px; min-height:60px; }
+#rotate { position:fixed; inset:0; display:none; z-index:50; background:#000; align-items:center; justify-content:center; flex-direction:column; text-align:center; font-size:19px; font-weight:700; padding:30px; gap:16px; }
+#rotate .ph { width:46px; height:80px; border:3px solid #fff; border-radius:10px; animation: rot 1.8s ease-in-out infinite; }
+@keyframes rot { 40%,60% { transform:rotate(-90deg);} }
+@media (orientation: portrait) and (pointer: coarse) { #rotate.need { display:flex; } }
+#loading { position:fixed; inset:0; display:flex; flex-direction:column; gap:18px; align-items:center; justify-content:center; background:#000; z-index:60; }
+#loading img { width:180px; }
+.spin { width:26px; height:26px; border-radius:50%; border:3px solid rgba(255,255,255,.2); border-top-color:#fff; animation: sp 0.8s linear infinite; }
+@keyframes sp { to { transform:rotate(360deg);} }
+@media (max-height: 420px) {
+.h1 { font-size:34px; } .lead { margin-bottom:10px; } .cta { height:48px; }
+.panel { top:calc(54px + var(--st)); bottom:calc(74px + var(--sb)); padding:12px; }
+.mode { min-height:120px; } .sheet { padding:16px; }
+#pos { font-size:48px; top:calc(124px + var(--st)); }
+.resTable td { padding:4px 6px; font-size:14px; } .resPlace { font-size:48px; } .sheet h2 { font-size:20px; } .sheetFoot { margin-top:10px; }
+}
+</style>
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }
+</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<!-- ======================= MENU ======================= -->
+<div id="menuLayer" class="hidden">
+<div class="topbar">
+<div class="brand"><img src="assets/logo.png" alt=""><div class="bt"><b>Картинг Клуб</b>Сибай</div></div>
+<div class="spacer"></div>
+<div class="pill glass"><span class="coin-ic"></span><span id="coinsTop">0</span></div>
+<button class="iconbtn glass press" id="btnSettings" aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+</div>
+<div id="home" class="screenTab">
+<div class="hero">
+<div class="eyebrow">Сезон 1 · Крытая трасса</div>
+<div class="h1">Неоновая<br>гонка</div>
+<div class="lead">Дрифтуй, собирай монеты, открывай кейсы с картами — и докажи, кто быстрее в Сибае.</div>
+<button class="cta press" id="btnPlay"><svg viewBox="0 0 24 24" fill="#000"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.4-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg>Играть</button>
+</div>
+</div>
+<div id="garage" class="screenTab hidden">
+<div class="panel glass">
+<h2>Гараж</h2>
+<div class="stats" id="garageStats"></div>
+<div class="scroll" id="garageList"></div>
+</div>
+</div>
+<div id="shop" class="screenTab hidden">
+<div class="panel glass">
+<h2>Магазин</h2>
+<div class="caseCard">
+<div class="caseBox">🎁</div>
+<div><div class="t">Неоновый кейс</div><div class="d">Случайный карт · шанс на легендарный 5%</div></div>
+<button class="buyBtn press" id="btnCase"><span class="coin-ic"></span>300</button>
+</div>
+<div class="scroll" id="shopList"></div>
+</div>
+</div>
+<div id="tour" class="screenTab hidden">
+<div class="panel glass">
+<h2>Турниры клуба</h2>
+<div class="row" style="flex-direction:column; align-items:flex-start; gap:6px">
+<div class="nm">Скоро: онлайн-заезды</div>
+<div class="note">Гонки с друзьями в реальном времени, еженедельный турнир Картинг Клуба Сибай и призы — настоящие заезды на трассе.</div>
+</div>
+<div class="row" style="flex-direction:column; align-items:flex-start; gap:8px">
+<div class="nm">Твои рекорды</div>
+<div class="note" id="records"></div>
+</div>
+<div class="note">Пока турниры в разработке, тренируйся в режиме «На время» — лучший круг сохраняется.</div>
+</div>
+</div>
+<div class="tabbar glass">
+<button class="tab on press" data-tab="home"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.6 11a1 1 0 0 0 1.3 1.5l.6-.5V20a1 1 0 0 0 1 1h4.5v-6h4v6H18.5a1 1 0 0 0 1-1v-8l.6.5a1 1 0 1 0 1.3-1.5z"/></svg>Главная</button>
+<button class="tab press" data-tab="garage"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 11l1.6-4.3A2 2 0 0 1 8.5 5.4h7a2 2 0 0 1 1.9 1.3L19 11a2 2 0 0 1 2 2v4a1 1 0 0 1-1 1h-1a2 2 0 0 1-4 0H9a2 2 0 0 1-4 0H4a1 1 0 0 1-1-1v-4a2 2 0 0 1 2-2zm2.2 0h9.6l-1.2-3.3a.5.5 0 0 0-.5-.3H8.9a.5.5 0 0 0-.5.3z"/></svg>Гараж</button>
+<button class="tab press" data-tab="shop"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7V6a5 5 0 0 1 10 0v1h2a1 1 0 0 1 1 1.1l-1 12A2 2 0 0 1 17 22H7a2 2 0 0 1-2-1.9l-1-12A1 1 0 0 1 5 7zm2 0h6V6a3 3 0 0 0-6 0z"/></svg>Магазин</button>
+<button class="tab press" data-tab="tour"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h10v2h3a1 1 0 0 1 1 1v2a5 5 0 0 1-4.4 5A5 5 0 0 1 13 14.9V18h3v3H8v-3h3v-3.1A5 5 0 0 1 7.4 12 5 5 0 0 1 3 7V5a1 1 0 0 1 1-1h3zm10 4v3.9A3 3 0 0 0 19 7V6zM7 6H5v1a3 3 0 0 0 2 2.9z"/></svg>Турниры</button>
+</div>
+</div>
+<!-- modes -->
+<div id="modesModal" class="modal hidden">
+<div class="sheet glass">
+<h2>Выбери режим</h2>
+<div class="note">Трасса: Неоновый зал · через главную площадь Сибая</div>
+<div class="modes">
+<button class="mode press" data-mode="gp"><div class="ic" style="background:rgba(160,70,255,.35)"><svg viewBox="0 0 24 24" fill="#fff"><path d="M7 2h10v2h3a1 1 0 0 1 1 1v2a5 5 0 0 1-4.4 5A5 5 0 0 1 13 14.9V18h3v3H8v-3h3v-3.1A5 5 0 0 1 7.4 12 5 5 0 0 1 3 7V5a1 1 0 0 1 1-1h3z"/></svg></div><div class="t">Гран-при</div><div class="d">3 круга против 5 соперников. Предметы, монеты, награда за место.</div></button>
+<button class="mode press" data-mode="tt"><div class="ic" style="background:rgba(41,217,255,.3)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></div><div class="t">На время</div><div class="d" id="ttDesc">Один на трассе. Поставь лучший круг.</div></button>
+<button class="mode locked press" data-mode="online"><span class="tag">Скоро</span><div class="ic" style="background:rgba(77,255,122,.25)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 14.5c3 0 6 2 6 5"/></svg></div><div class="t">С друзьями</div><div class="d">Онлайн-гонки и турниры клуба.</div></button>
+</div>
+<div class="sheetFoot">
+<div class="seg" id="diffSeg"><button data-d="0">Лёгкий</button><button data-d="1" class="on">Нормальный</button><button data-d="2">Сложный</button></div>
+<button class="cta sec small press" id="modesClose">Закрыть</button>
+</div>
+</div>
+</div>
+<!-- settings -->
+<div id="settingsModal" class="modal hidden">
+<div class="sheet glass" style="width:min(460px,92vw)">
+<h2>Настройки</h2>
+<div class="setRow">Музыка<div class="toggle on" id="tgMusic"></div></div>
+<div class="setRow">Звуки<div class="toggle on" id="tgSfx"></div></div>
+<div class="setRow">Автогаз<div class="toggle" id="tgAuto"></div></div>
+<div class="setRow">Чувствительность руля<input type="range" id="rgSens" min="60" max="140" value="100"></div>
+<div class="setRow" style="border:none">Графика<div class="seg" id="gfxSeg" style="margin:0"><button data-q="eco">Эконом</button><button data-q="auto" class="on">Авто</button><button data-q="high">Макс</button></div></div>
+<div class="sheetFoot"><span class="note">Демо-версия · Картинг Клуб Сибай</span><button class="cta small press" id="settingsClose">Готово</button></div>
+</div>
+</div>
+<!-- case open -->
+<div id="caseModal" class="modal hidden">
+<div class="sheet glass" style="width:min(640px,94vw)">
+<h2>Неоновый кейс</h2>
+<div id="reel"><div id="reelStrip"></div></div>
+<div id="caseResult"></div>
+<div class="sheetFoot"><span class="note" id="caseNote"></span><button class="cta small press hidden" id="caseClose">Забрать</button></div>
+</div>
+</div>
+<!-- ======================= RACE ======================= -->
+<div id="hud" class="hidden">
+<div class="hudTL">
+<div id="itemSlot" class="glass"></div>
+<div class="hudCol">
+<div class="hudPill glass"><span class="coin-ic" style="width:16px;height:16px"></span><span id="hudCoins">0</span></div>
+</div>
+</div>
+<div class="hudTop">
+<div class="hudPill glass" id="hudLap">Круг 1/3</div>
+<div class="hudPill glass" id="hudTime">0:00.00</div>
+<button id="pauseBtn" class="glass press" aria-label="Пауза"><svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
+</div>
+<canvas id="mini" class="glass" width="300" height="224"></canvas>
+<div id="pos">1<small>/6</small></div>
+<div id="driftMeter"><i></i></div>
+<div id="speedo"><b id="spd">0</b> км/ч</div>
+<div id="toast" class="glass"></div>
+<div id="msg"></div>
+</div>
+<div id="ctrl" class="hidden">
+<div class="cb glass" id="bL"><svg viewBox="0 0 24 24" fill="#fff"><path d="M15.5 4.2 7 11.2a1 1 0 0 0 0 1.6l8.5 7a1 1 0 0 0 1.6-.8V5a1 1 0 0 0-1.6-.8z"/></svg></div>
+<div class="cb glass" id="bR"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8.5 4.2 17 11.2a1 1 0 0 1 0 1.6l-8.5 7A1 1 0 0 1 6.9 19V5a1 1 0 0 1 1.6-.8z"/></svg></div>
+<div class="cb glass" id="bItem"><svg viewBox="0 0 24 24" fill="#fff" style="width:24px;height:24px"><path d="M12 2l2.6 6.3L21 9l-5 4.4L17.5 20 12 16.6 6.5 20 8 13.4 3 9l6.4-.7z"/></svg>ПРЕДМЕТ</div>
+<div class="cb glass" id="bDrift"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M4 17c4 0 6-2 8-5s4-5 8-5"/><path d="M16 4l4 3-3 4"/></svg>ДРИФТ</div>
+<div class="cb glass" id="bBrake"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" style="width:24px;height:24px"><path d="M12 5v14M6 13l6 6 6-6"/></svg>ТОРМОЗ</div>
+<div class="cb glass" id="bGas"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>ГАЗ</div>
+</div>
+<div id="pauseModal" class="modal hidden">
+<div class="sheet glass" style="width:min(380px,90vw); text-align:center">
+<h2>Пауза</h2>
+<div style="display:flex; flex-direction:column; gap:10px; margin-top:14px">
+<button class="cta press" id="btnResume" style="justify-content:center">Продолжить</button>
+<button class="cta sec press" id="btnRestart" style="justify-content:center">Заново</button>
+<button class="cta sec press" id="btnQuit" style="justify-content:center">Выйти в меню</button>
+</div>
+</div>
+</div>
+<div id="resultsModal" class="modal hidden">
+<div class="sheet glass" style="width:min(560px,94vw)">
+<div style="display:flex; align-items:center; gap:16px">
+<div class="resPlace" id="resPlace">1</div>
+<div><h2 id="resTitle">Победа!</h2><div class="note" id="resSub"></div></div>
+<div class="spacer"></div>
+<div class="reward"><span class="coin-ic" style="width:26px;height:26px"></span>+<span id="resCoins">0</span></div>
+</div>
+<table class="resTable" id="resTable"></table>
+<div class="note" style="margin-top:12px">Понравилось? Приходи на настоящий заезд в Картинг Клуб Сибай!</div>
+<div class="sheetFoot">
+<button class="cta sec small press" id="btnMenu">В меню</button>
+<button class="cta small press" id="btnAgain">Ещё раз</button>
+</div>
+</div>
+</div>
+<div id="rotate"><div class="ph"></div><div>Поверни телефон горизонтально</div></div>
+<div id="loading"><img src="assets/logo.png" alt=""><div class="spin"></div></div>
+<script type="module" src="./game.js"></script>
+</body>
+</html>
